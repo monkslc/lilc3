@@ -39,6 +39,7 @@ impl OpCode {
         let opcode = instruction >> 12;
         match opcode {
             1 => OpCode::Add,
+            10 => OpCode::LoadIndirect,
             _ => todo!(),
         }
     }
@@ -48,6 +49,7 @@ impl OpCode {
 pub enum Instruction {
     AddRegister(AddRegister),
     AddImmediate(AddImmediate),
+    LoadIndirect(LoadIndirect),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -108,6 +110,30 @@ impl AddImmediate {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct LoadIndirect {
+    pub dr: RegisterIndex,
+    pub pc_offset9: u16,
+}
+
+impl LoadIndirect {
+    pub fn encode(&self) -> u16 {
+        let instr = 0;
+        let instr = set_opcode(instr, OpCode::LoadIndirect);
+        let instr = set_dr(instr, self.dr);
+        let instr = instr | self.pc_offset9;
+        instr
+    }
+
+    pub fn decode(instr: u16) -> Self {
+        let dr = get_dr(instr);
+        let pc_offset9 = instr & 0x1FF;
+        let pc_offset9 = sign_extend_u16(pc_offset9, 9);
+
+        LoadIndirect { dr, pc_offset9 }
+    }
+}
+
 impl Instruction {
     pub fn decode(instr: u16) -> Self {
         match OpCode::from_instruction(instr) {
@@ -119,6 +145,7 @@ impl Instruction {
                     Instruction::AddRegister(AddRegister::decode(instr))
                 }
             }
+            OpCode::LoadIndirect => Instruction::LoadIndirect(LoadIndirect::decode(instr)),
             _ => todo!(),
         }
     }
@@ -127,6 +154,7 @@ impl Instruction {
         match self {
             Self::AddRegister(instr) => instr.encode(),
             Self::AddImmediate(instr) => instr.encode(),
+            Self::LoadIndirect(instr) => instr.encode(),
         }
     }
 }

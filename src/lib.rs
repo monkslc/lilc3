@@ -2,7 +2,7 @@ use bitflags::bitflags;
 
 pub mod instruction;
 
-use instruction::{AddImmediate, AddRegister, Instruction};
+use instruction::{AddImmediate, AddRegister, Instruction, LoadIndirect};
 
 pub type BusSize = u16;
 pub type InstructionSize = u16;
@@ -42,11 +42,13 @@ impl LC3 {
 
     pub fn step(&mut self) {
         let raw_instr = self.memory[self.pc];
+        self.pc += 1;
         let instr = Instruction::decode(raw_instr);
 
         match instr {
             Instruction::AddRegister(instr) => self.add_register(instr),
             Instruction::AddImmediate(instr) => self.add_immediate(instr),
+            Instruction::LoadIndirect(instr) => self.load_indirect(instr),
         }
     }
 
@@ -61,6 +63,11 @@ impl LC3 {
         // u32s are added to prevent overflow
         let value: u32 = self.registers[instr.sr1 as usize] as u32 + (instr.imm5 as u16) as u32;
         self.set_register(instr.dr, value as u16)
+    }
+
+    pub fn load_indirect(&mut self, instr: LoadIndirect) {
+        let address = self.pc + (instr.pc_offset9 as usize);
+        self.set_register(instr.dr, self.memory[address]);
     }
 
     /// Put `value` in `register` and set the cond register based on `value`
@@ -179,5 +186,22 @@ mod tests {
 
         assert_eq!(machine.registers[dr as usize], 0);
         assert_eq!(machine.cond, CondFlag::ZERO);
+    }
+
+    #[test]
+    fn load_indirect() {
+        let mut memory = [0; MAX_MEMORY_SIZE];
+        let dr = 1;
+        let pc_offset9 = 10;
+
+        let instruction = Instruction::LoadIndirect(LoadIndirect { dr, pc_offset9 }).encode();
+        memory[PROGRAM_START] = instruction;
+        memory[PROGRAM_START + 1 + 10] = 17;
+
+        let mut machine = LC3::new(memory);
+        machine.step();
+
+        assert_eq!(machine.registers[dr as usize], 17);
+        assert_eq!(machine.cond, CondFlag::POSITIVE);
     }
 }
