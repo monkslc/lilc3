@@ -50,13 +50,13 @@ impl LC3 {
     pub fn add_register(&mut self, instr: AddRegister) {
         // u32s are added to prevent overflow
         let value: u32 =
-            self.registers[instr.src1 as usize] as u32 + self.registers[instr.src2 as usize] as u32;
-        self.set_register(instr.dest, value as u16)
+            self.registers[instr.sr1 as usize] as u32 + self.registers[instr.sr2 as usize] as u32;
+        self.set_register(instr.dr, value as u16)
     }
 
     pub fn add_immediate(&mut self, instr: AddImmediate) {
-        let value = self.registers[instr.src1 as usize] + instr.immediate;
-        self.set_register(instr.dest, value)
+        let value = self.registers[instr.sr1 as usize] + (instr.imm5 as u16);
+        self.set_register(instr.dr, value)
     }
 
     /// Put `value` in `register` and set the cond register based on `value`
@@ -78,55 +78,50 @@ mod tests {
     #[test]
     fn add_register() {
         let mut memory = [0; MAX_MEMORY_SIZE];
-        let dest = 1;
-        let src1 = 2;
-        let src2 = 3;
+        let dr = 1;
+        let sr1 = 2;
+        let sr2 = 3;
 
-        let instruction = Instruction::AddRegister(AddRegister { dest, src1, src2 }).encode();
+        let instruction = Instruction::AddRegister(AddRegister { dr, sr1, sr2 }).encode();
 
         memory[PROGRAM_START] = instruction;
 
         let mut machine = LC3::new(memory);
-        machine.registers[src1 as usize] = 5;
-        machine.registers[src2 as usize] = 6;
+        machine.registers[sr1 as usize] = 5;
+        machine.registers[sr2 as usize] = 6;
         machine.step();
 
-        assert_eq!(machine.registers[dest as usize], 11);
+        assert_eq!(machine.registers[dr as usize], 11);
         assert_eq!(machine.cond, Flag::Pos);
     }
 
     #[test]
     fn add_immediate() {
         let mut memory = [0; MAX_MEMORY_SIZE];
-        let dest = 1;
-        let src1 = 2;
-        let immediate = 6;
+        let dr = 1;
+        let sr1 = 2;
+        let imm5 = 6;
 
-        let instruction = Instruction::AddImmediate(AddImmediate {
-            dest,
-            src1,
-            immediate,
-        })
-        .encode();
+        let instruction = Instruction::AddImmediate(AddImmediate { dr, sr1, imm5 }).encode();
 
         memory[PROGRAM_START] = instruction;
 
         let mut machine = LC3::new(memory);
-        machine.registers[src1 as usize] = 5;
+        machine.registers[sr1 as usize] = 5;
         machine.step();
 
-        assert_eq!(machine.registers[dest as usize], 11);
+        assert_eq!(machine.registers[dr as usize], 11);
         assert_eq!(machine.cond, Flag::Pos);
     }
 
     #[test]
     fn add_cond_flag_negative() {
         let mut memory = [0; MAX_MEMORY_SIZE];
-        let dest = 1;
-        let src1 = 2;
-        let src2 = 3;
+        let dr = 1;
+        let sr1 = 2;
+        let sr2 = 3;
 
-        let instruction = Instruction::AddRegister(AddRegister { dest, src1, src2 }).encode();
+        let instruction = Instruction::AddRegister(AddRegister { dr, sr1, sr2 }).encode();
 
         memory[PROGRAM_START] = instruction;
 
@@ -134,33 +129,33 @@ mod tests {
         let negative_two = 0xFFFE;
 
         let mut machine = LC3::new(memory);
-        machine.registers[src1 as usize] = negative_one;
-        machine.registers[src2 as usize] = negative_one;
+        machine.registers[sr1 as usize] = negative_one;
+        machine.registers[sr2 as usize] = negative_one;
         machine.step();
 
-        assert_eq!(machine.registers[dest as usize], negative_two);
+        assert_eq!(machine.registers[dr as usize], negative_two);
         assert_eq!(machine.cond, Flag::Neg);
     }
 
     #[test]
     fn add_cond_flag_zero() {
         let mut memory = [0; MAX_MEMORY_SIZE];
-        let dest = 1;
-        let src1 = 2;
-        let src2 = 3;
+        let dr = 1;
+        let sr1 = 2;
+        let sr2 = 3;
 
-        let instruction = Instruction::AddRegister(AddRegister { dest, src1, src2 }).encode();
+        let instruction = Instruction::AddRegister(AddRegister { dr, sr1, sr2 }).encode();
 
         memory[PROGRAM_START] = instruction;
 
         let negative_one: u16 = 0xFFFF;
 
         let mut machine = LC3::new(memory);
-        machine.registers[src1 as usize] = 1;
-        machine.registers[src2 as usize] = negative_one;
+        machine.registers[sr1 as usize] = 1;
+        machine.registers[sr2 as usize] = negative_one;
         machine.step();
 
-        assert_eq!(machine.registers[dest as usize], 0);
+        assert_eq!(machine.registers[dr as usize], 0);
         assert_eq!(machine.cond, Flag::Zero);
     }
 }

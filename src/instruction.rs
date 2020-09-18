@@ -52,45 +52,45 @@ pub enum Instruction {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct AddRegister {
-    pub dest: RegisterIndex,
-    pub src1: RegisterIndex,
-    pub src2: RegisterIndex,
+    pub dr: RegisterIndex,
+    pub sr1: RegisterIndex,
+    pub sr2: RegisterIndex,
 }
 
 impl AddRegister {
     pub fn encode(&self) -> u16 {
         let instr = 0;
         let instr = set_opcode(instr, OpCode::Add);
-        let instr = set_dest(instr, self.dest);
-        let instr = set_src1(instr, self.src1);
-        let instr = set_src2(instr, self.src2);
+        let instr = set_dr(instr, self.dr);
+        let instr = set_sr1(instr, self.sr1);
+        let instr = set_sr2(instr, self.sr2);
 
         instr
     }
     pub fn decode(instr: u16) -> Self {
-        let dest = get_dest(instr);
-        let src1 = get_src1(instr);
-        let src2 = get_src2(instr);
+        let dr = get_dr(instr);
+        let sr1 = get_sr1(instr);
+        let sr2 = get_sr2(instr);
 
-        AddRegister { dest, src1, src2 }
+        AddRegister { dr, sr1, sr2 }
     }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct AddImmediate {
-    pub dest: RegisterIndex,
-    pub src1: RegisterIndex,
-    pub immediate: u16,
+    pub dr: RegisterIndex,
+    pub sr1: RegisterIndex,
+    pub imm5: u8,
 }
 
 impl AddImmediate {
     pub fn encode(&self) -> u16 {
         let instr = 0;
         let instr = set_opcode(instr, OpCode::Add);
-        let instr = set_dest(instr, self.dest);
-        let instr = set_src1(instr, self.src1);
+        let instr = set_dr(instr, self.dr);
+        let instr = set_sr1(instr, self.sr1);
 
-        let instr = instr | self.immediate;
+        let instr = instr | (self.imm5 as u16);
         let immediate_mode_flag = 0b100000;
         let instr = instr | immediate_mode_flag;
 
@@ -98,20 +98,16 @@ impl AddImmediate {
     }
 
     pub fn decode(instr: u16) -> Self {
-        let dest = get_dest(instr);
-        let src1 = get_src1(instr);
+        let dr = get_dr(instr);
+        let sr1 = get_sr1(instr);
 
-        let immediate = instr & 0x1F;
-        let sign_extended_immediate = if immediate >> 5 == 1 {
-            0xFFE0 | immediate
-        } else {
-            immediate
-        };
+        let imm5 = (instr & 0x1F) as u8;
+        let sign_extended_imm5 = if imm5 >> 5 == 1 { 0xE0 | imm5 } else { imm5 };
 
         AddImmediate {
-            dest,
-            src1,
-            immediate: sign_extended_immediate,
+            dr,
+            sr1,
+            imm5: sign_extended_imm5,
         }
     }
 }
@@ -143,26 +139,26 @@ fn set_opcode(instr: InstructionSize, op: OpCode) -> InstructionSize {
     instr | op.align_instruction()
 }
 
-fn set_dest(instr: InstructionSize, register: RegisterIndex) -> InstructionSize {
+fn set_dr(instr: InstructionSize, register: RegisterIndex) -> InstructionSize {
     instr | ((register as u16) << 9)
 }
 
-fn set_src1(instr: InstructionSize, register: RegisterIndex) -> InstructionSize {
+fn set_sr1(instr: InstructionSize, register: RegisterIndex) -> InstructionSize {
     instr | ((register as u16) << 6)
 }
 
-fn set_src2(instr: InstructionSize, register: RegisterIndex) -> InstructionSize {
+fn set_sr2(instr: InstructionSize, register: RegisterIndex) -> InstructionSize {
     instr | (register as u16)
 }
 
-fn get_dest(instr: InstructionSize) -> RegisterIndex {
+fn get_dr(instr: InstructionSize) -> RegisterIndex {
     ((instr >> 9) as u8) & 0x7
 }
 
-fn get_src1(instr: InstructionSize) -> RegisterIndex {
+fn get_sr1(instr: InstructionSize) -> RegisterIndex {
     ((instr >> 6) as u8) & 0x7
 }
 
-fn get_src2(instr: InstructionSize) -> RegisterIndex {
+fn get_sr2(instr: InstructionSize) -> RegisterIndex {
     (instr & 0x7) as u8
 }
