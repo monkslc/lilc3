@@ -58,8 +58,9 @@ impl LC3 {
     }
 
     pub fn add_immediate(&mut self, instr: AddImmediate) {
-        let value = self.registers[instr.sr1 as usize] + (instr.imm5 as u16);
-        self.set_register(instr.dr, value)
+        // u32s are added to prevent overflow
+        let value: u32 = self.registers[instr.sr1 as usize] as u32 + (instr.imm5 as u16) as u32;
+        self.set_register(instr.dr, value as u16)
     }
 
     /// Put `value` in `register` and set the cond register based on `value`
@@ -156,6 +157,24 @@ mod tests {
         let mut machine = LC3::new(memory);
         machine.registers[sr1 as usize] = 1;
         machine.registers[sr2 as usize] = negative_one;
+        machine.step();
+
+        assert_eq!(machine.registers[dr as usize], 0);
+        assert_eq!(machine.cond, CondFlag::ZERO);
+    }
+
+    #[test]
+    fn sign_extension_add_immediate() {
+        let mut memory = [0; MAX_MEMORY_SIZE];
+        let dr = 1;
+        let sr1 = 2;
+        let imm5 = 0x1F; // negative one as 5 bits
+
+        let instruction = Instruction::AddImmediate(AddImmediate { dr, sr1, imm5 }).encode();
+        memory[PROGRAM_START] = instruction;
+
+        let mut machine = LC3::new(memory);
+        machine.registers[sr1 as usize] = 1;
         machine.step();
 
         assert_eq!(machine.registers[dr as usize], 0);

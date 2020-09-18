@@ -80,7 +80,7 @@ impl AddRegister {
 pub struct AddImmediate {
     pub dr: RegisterIndex,
     pub sr1: RegisterIndex,
-    pub imm5: u8,
+    pub imm5: u16,
 }
 
 impl AddImmediate {
@@ -101,14 +101,10 @@ impl AddImmediate {
         let dr = get_dr(instr);
         let sr1 = get_sr1(instr);
 
-        let imm5 = (instr & 0x1F) as u8;
-        let sign_extended_imm5 = if imm5 >> 5 == 1 { 0xE0 | imm5 } else { imm5 };
+        let imm5 = instr & 0x1F;
+        let imm5 = sign_extend_u16(imm5, 5);
 
-        AddImmediate {
-            dr,
-            sr1,
-            imm5: sign_extended_imm5,
-        }
+        AddImmediate { dr, sr1, imm5 }
     }
 }
 
@@ -161,4 +157,12 @@ fn get_sr1(instr: InstructionSize) -> RegisterIndex {
 
 fn get_sr2(instr: InstructionSize) -> RegisterIndex {
     (instr & 0x7) as u8
+}
+
+fn sign_extend_u16(val: u16, original_length: u8) -> u16 {
+    if (val >> (original_length - 1)) == 1 {
+        (0xFFFF << original_length) | val
+    } else {
+        val
+    }
 }
