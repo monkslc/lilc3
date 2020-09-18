@@ -1,3 +1,5 @@
+use bitflags::bitflags;
+
 pub mod instruction;
 
 use instruction::{AddImmediate, AddRegister, Instruction};
@@ -13,18 +15,19 @@ const PROGRAM_START: usize = 0x3000;
 const MAX_MEMORY_SIZE: usize = BusSize::MAX as usize;
 const REGISTER_COUNT: usize = 8;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Flag {
-    Pos = 1,
-    Zero = 2,
-    Neg = 4,
+bitflags! {
+    struct CondFlag: u8 {
+        const POSITIVE = 0b1;
+        const NEGATIVE = 0b10;
+        const ZERO = 0b100;
+    }
 }
 
 pub struct LC3 {
     memory: [MemoryLocationSize; MAX_MEMORY_SIZE],
     registers: [RegisterSize; REGISTER_COUNT],
     pc: usize,
-    cond: Flag,
+    cond: CondFlag,
 }
 
 impl LC3 {
@@ -33,7 +36,7 @@ impl LC3 {
             memory,
             registers: [0; REGISTER_COUNT],
             pc: PROGRAM_START,
-            cond: Flag::Zero,
+            cond: CondFlag::ZERO,
         }
     }
 
@@ -62,9 +65,9 @@ impl LC3 {
     /// Put `value` in `register` and set the cond register based on `value`
     pub fn set_register(&mut self, register: RegisterIndex, value: RegisterSize) {
         self.cond = match value {
-            0 => Flag::Zero,
-            v if v >> 15 == 1 => Flag::Neg,
-            _ => Flag::Pos,
+            0 => CondFlag::ZERO,
+            v if v >> 15 == 1 => CondFlag::NEGATIVE,
+            _ => CondFlag::POSITIVE,
         };
 
         self.registers[register as usize] = value;
@@ -92,7 +95,7 @@ mod tests {
         machine.step();
 
         assert_eq!(machine.registers[dr as usize], 11);
-        assert_eq!(machine.cond, Flag::Pos);
+        assert_eq!(machine.cond, CondFlag::POSITIVE);
     }
 
     #[test]
@@ -111,7 +114,7 @@ mod tests {
         machine.step();
 
         assert_eq!(machine.registers[dr as usize], 11);
-        assert_eq!(machine.cond, Flag::Pos);
+        assert_eq!(machine.cond, CondFlag::POSITIVE);
     }
 
     #[test]
@@ -134,7 +137,7 @@ mod tests {
         machine.step();
 
         assert_eq!(machine.registers[dr as usize], negative_two);
-        assert_eq!(machine.cond, Flag::Neg);
+        assert_eq!(machine.cond, CondFlag::NEGATIVE);
     }
 
     #[test]
@@ -156,6 +159,6 @@ mod tests {
         machine.step();
 
         assert_eq!(machine.registers[dr as usize], 0);
-        assert_eq!(machine.cond, Flag::Zero);
+        assert_eq!(machine.cond, CondFlag::ZERO);
     }
 }
