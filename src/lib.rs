@@ -2,7 +2,9 @@ use bitflags::bitflags;
 
 pub mod instruction;
 
-use instruction::{AddImmediate, AddRegister, Instruction, LoadIndirect};
+use instruction::{
+    AddImmediate, AddRegister, AndImmediate, AndRegister, Instruction, LoadIndirect,
+};
 
 pub type BusSize = u16;
 pub type InstructionSize = u16;
@@ -46,10 +48,18 @@ impl LC3 {
         let instr = Instruction::decode(raw_instr);
 
         match instr {
-            Instruction::AddRegister(instr) => self.add_register(instr),
             Instruction::AddImmediate(instr) => self.add_immediate(instr),
+            Instruction::AddRegister(instr) => self.add_register(instr),
+            Instruction::AndImmediate(instr) => self.and_immediate(instr),
+            Instruction::AndRegister(instr) => self.and_register(instr),
             Instruction::LoadIndirect(instr) => self.load_indirect(instr),
         }
+    }
+
+    pub fn add_immediate(&mut self, instr: AddImmediate) {
+        // u32s are added to prevent overflow
+        let value: u32 = self.registers[instr.sr1 as usize] as u32 + (instr.imm5 as u16) as u32;
+        self.set_register(instr.dr, value as u16)
     }
 
     pub fn add_register(&mut self, instr: AddRegister) {
@@ -59,10 +69,14 @@ impl LC3 {
         self.set_register(instr.dr, value as u16)
     }
 
-    pub fn add_immediate(&mut self, instr: AddImmediate) {
-        // u32s are added to prevent overflow
-        let value: u32 = self.registers[instr.sr1 as usize] as u32 + (instr.imm5 as u16) as u32;
+    pub fn and_immediate(&mut self, instr: AndImmediate) {
+        let value = self.registers[instr.sr1 as usize] & (instr.imm5 as u16);
         self.set_register(instr.dr, value as u16)
+    }
+
+    pub fn and_register(&mut self, instr: AndRegister) {
+        let value = self.registers[instr.sr1 as usize] & self.registers[instr.sr2 as usize];
+        self.set_register(instr.dr, value)
     }
 
     pub fn load_indirect(&mut self, instr: LoadIndirect) {
@@ -203,5 +217,44 @@ mod tests {
 
         assert_eq!(machine.registers[dr as usize], 17);
         assert_eq!(machine.cond, CondFlag::POSITIVE);
+    }
+
+    #[test]
+    fn and_register() {
+        let mut memory = [0; MAX_MEMORY_SIZE];
+        let dr = 1;
+        let sr1 = 2;
+        let sr2 = 3;
+
+        let instruction = Instruction::AndRegister(AndRegister { dr, sr1, sr2 }).encode();
+        memory[PROGRAM_START] = instruction;
+
+        let mut machine = LC3::new(memory);
+        machine.registers[sr1 as usize] = 0b0101;
+        machine.registers[sr2 as usize] = 0b1110;
+        machine.step();
+
+        let expected = 0b0100;
+        assert_eq!(machine.registers[dr as usize], expected);
+        assert_eq!(machine.cond, CondFlag::POSITIVE);
+    }
+
+    #[test]
+    fn and_immediate() {
+        let mut memory = [0; MAX_MEMORY_SIZE];
+        let dr = 1;
+        let sr1 = 2;
+        let imm5 = 0b10001;
+
+        let instruction = Instruction::AndImmediate(AndImmediate { dr, sr1, imm5 }).encode();
+        memory[PROGRAM_START] = instruction;
+
+        let mut machine = LC3::new(memory);
+        machine.registers[sr1 as usize] = 0xFFF3;
+        machine.step();
+
+        let expected = 0xFFF1;
+        assert_eq!(machine.registers[dr as usize], expected);
+        assert_eq!(machine.cond, CondFlag::NEGATIVE);
     }
 }
