@@ -10,7 +10,7 @@ pub enum OpCode {
     Add = 1,
     Load = 2,
     Store = 3,
-    JumpRegister = 4,
+    JumpSubRoutine = 4,
     And = 5,
     LoadRegister = 6,
     StoreRegister = 7,
@@ -40,6 +40,7 @@ impl OpCode {
         match opcode {
             0 => OpCode::Branch,
             1 => OpCode::Add,
+            4 => OpCode::JumpSubRoutine,
             5 => OpCode::And,
             10 => OpCode::LoadIndirect,
             12 => OpCode::Jump,
@@ -56,6 +57,8 @@ pub enum Instruction {
     AndRegister(AndRegister),
     Branch(Branch),
     Jump(Jump),
+    JumpSubRoutineOffset(JumpSubRoutineOffset),
+    JumpSubRoutineRegister(JumpSubRoutineRegister),
     LoadIndirect(LoadIndirect),
 }
 
@@ -211,6 +214,47 @@ impl Jump {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct JumpSubRoutineOffset {
+    pub pc_offset11: u16,
+}
+
+impl JumpSubRoutineOffset {
+    pub fn encode(&self) -> InstructionSize {
+        let instr = 0;
+        let instr = set_opcode(instr, OpCode::JumpSubRoutine);
+        let instr = set_pc_offset11(instr, self.pc_offset11);
+        let instr = set_pc_offset_mode(instr);
+
+        instr
+    }
+    pub fn decode(instr: InstructionSize) -> Self {
+        let pc_offset11 = get_pc_offset11(instr);
+
+        JumpSubRoutineOffset { pc_offset11 }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct JumpSubRoutineRegister {
+    pub base_r: RegisterIndex,
+}
+
+impl JumpSubRoutineRegister {
+    pub fn encode(&self) -> InstructionSize {
+        let instr = 0;
+        let instr = set_opcode(instr, OpCode::JumpSubRoutine);
+        let instr = set_base_r(instr, self.base_r);
+
+        instr
+    }
+    pub fn decode(instr: InstructionSize) -> Self {
+        let base_r = get_base_r(instr);
+
+        JumpSubRoutineRegister { base_r }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct LoadIndirect {
     pub dr: RegisterIndex,
     pub pc_offset9: u16,
@@ -256,6 +300,15 @@ impl Instruction {
             }
             OpCode::Branch => Instruction::Branch(Branch::decode(instr)),
             OpCode::Jump => Instruction::Jump(Jump::decode(instr)),
+            OpCode::JumpSubRoutine => {
+                let offset_mode = get_pc_offset_mode(instr);
+
+                if offset_mode == 1 {
+                    Instruction::JumpSubRoutineOffset(JumpSubRoutineOffset::decode(instr))
+                } else {
+                    Instruction::JumpSubRoutineRegister(JumpSubRoutineRegister::decode(instr))
+                }
+            }
             OpCode::LoadIndirect => Instruction::LoadIndirect(LoadIndirect::decode(instr)),
             _ => todo!(),
         }
@@ -269,6 +322,8 @@ impl Instruction {
             Self::AndRegister(instr) => instr.encode(),
             Self::Branch(instr) => instr.encode(),
             Self::Jump(instr) => instr.encode(),
+            Self::JumpSubRoutineOffset(instr) => instr.encode(),
+            Self::JumpSubRoutineRegister(instr) => instr.encode(),
             Self::LoadIndirect(instr) => instr.encode(),
         }
     }
@@ -361,6 +416,24 @@ fn get_base_r(instr: InstructionSize) -> RegisterIndex {
 
 fn set_base_r(instr: InstructionSize, base_r: RegisterIndex) -> InstructionSize {
     set_bit_field(instr, base_r as u16, 6)
+}
+
+fn get_pc_offset_mode(instr: InstructionSize) -> u16 {
+    get_bit_field(instr, 11, 12)
+}
+
+fn set_pc_offset_mode(instr: InstructionSize) -> u16 {
+    set_bit_field(instr, 1, 11)
+}
+
+fn get_pc_offset11(instr: InstructionSize) -> u16 {
+    println!("Instruction: {:016b}", instr);
+    println!("           : {:016b}", get_bit_field(instr, 0, 12));
+    get_bit_field(instr, 0, 11)
+}
+
+fn set_pc_offset11(instr: InstructionSize, offset: u16) -> u16 {
+    set_bit_field(instr, offset, 0)
 }
 
 fn sign_extend_u16(val: u16, original_length: u8) -> u16 {

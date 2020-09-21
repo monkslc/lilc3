@@ -3,7 +3,8 @@ use bitflags::bitflags;
 pub mod instruction;
 
 use instruction::{
-    AddImmediate, AddRegister, AndImmediate, AndRegister, Branch, Instruction, Jump, LoadIndirect,
+    AddImmediate, AddRegister, AndImmediate, AndRegister, Branch, Instruction, Jump,
+    JumpSubRoutineOffset, JumpSubRoutineRegister, LoadIndirect,
 };
 
 pub type BusSize = u16;
@@ -54,6 +55,8 @@ impl LC3 {
             Instruction::AndRegister(instr) => self.and_register(instr),
             Instruction::Branch(instr) => self.branch(instr),
             Instruction::Jump(instr) => self.jump(instr),
+            Instruction::JumpSubRoutineOffset(instr) => self.jump_subroutine_offset(instr),
+            Instruction::JumpSubRoutineRegister(instr) => self.jump_subroutine_register(instr),
             Instruction::LoadIndirect(instr) => self.load_indirect(instr),
         }
     }
@@ -88,6 +91,16 @@ impl LC3 {
     }
 
     pub fn jump(&mut self, instr: Jump) {
+        self.pc = self.registers[instr.base_r as usize];
+    }
+
+    pub fn jump_subroutine_offset(&mut self, instr: JumpSubRoutineOffset) {
+        self.registers[7] = self.pc;
+        self.pc += instr.pc_offset11;
+    }
+
+    pub fn jump_subroutine_register(&mut self, instr: JumpSubRoutineRegister) {
+        self.registers[7] = self.pc;
         self.pc = self.registers[instr.base_r as usize];
     }
 
@@ -315,5 +328,39 @@ mod tests {
         machine.step();
 
         assert_eq!(machine.pc, 0xFFFF);
+    }
+
+    #[test]
+    fn jump_subroutine_offset() {
+        let mut memory = [0; MAX_MEMORY_SIZE];
+        let pc_offset11 = 10;
+
+        let instruction =
+            Instruction::JumpSubRoutineOffset(JumpSubRoutineOffset { pc_offset11 }).encode();
+        memory[PROGRAM_START as usize] = instruction;
+
+        let mut machine = LC3::new(memory);
+        machine.step();
+
+        assert_eq!(machine.pc, PROGRAM_START + 11);
+        assert_eq!(machine.registers[7], PROGRAM_START + 1);
+    }
+
+    #[test]
+    fn jump_subroutine_register() {
+        let mut memory = [0; MAX_MEMORY_SIZE];
+        let base_r = 1;
+
+        let instruction =
+            Instruction::JumpSubRoutineRegister(JumpSubRoutineRegister { base_r }).encode();
+        memory[PROGRAM_START as usize] = instruction;
+
+        let jump_to = 0xFFFF;
+        let mut machine = LC3::new(memory);
+        machine.registers[base_r as usize] = jump_to;
+        machine.step();
+
+        assert_eq!(machine.pc, 0xFFFF);
+        assert_eq!(machine.registers[7], PROGRAM_START + 1);
     }
 }
