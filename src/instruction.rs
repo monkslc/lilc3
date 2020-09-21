@@ -44,6 +44,7 @@ impl OpCode {
             4 => OpCode::JumpSubRoutine,
             5 => OpCode::And,
             6 => OpCode::LoadBaseOffset,
+            9 => OpCode::Not,
             10 => OpCode::LoadIndirect,
             12 => OpCode::Jump,
             14 => OpCode::LoadEffectiveAddress,
@@ -66,6 +67,7 @@ pub enum Instruction {
     LoadBaseOffset(LoadBaseOffset),
     LoadEffectiveAddress(LoadEffectiveAddress),
     LoadIndirect(LoadIndirect),
+    Not(Not),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -359,6 +361,31 @@ impl LoadIndirect {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Not {
+    pub dr: RegisterIndex,
+    pub sr1: RegisterIndex,
+}
+
+impl Not {
+    pub fn encode(&self) -> u16 {
+        let instr = 0;
+        let instr = set_opcode(instr, OpCode::Not);
+        let instr = set_dr(instr, self.dr);
+        let instr = set_sr1(instr, self.sr1);
+        let instr = instr | 0x1F;
+
+        instr
+    }
+
+    pub fn decode(instr: u16) -> Self {
+        let dr = get_dr(instr);
+        let sr1 = get_sr1(instr);
+
+        Not { dr, sr1 }
+    }
+}
+
 impl Instruction {
     pub fn decode(instr: InstructionSize) -> Self {
         match OpCode::from_instruction(instr) {
@@ -397,6 +424,7 @@ impl Instruction {
                 Instruction::LoadEffectiveAddress(LoadEffectiveAddress::decode(instr))
             }
             OpCode::LoadIndirect => Instruction::LoadIndirect(LoadIndirect::decode(instr)),
+            OpCode::Not => Instruction::Not(Not::decode(instr)),
             _ => todo!(),
         }
     }
@@ -415,6 +443,7 @@ impl Instruction {
             Self::LoadBaseOffset(instr) => instr.encode(),
             Self::LoadEffectiveAddress(instr) => instr.encode(),
             Self::LoadIndirect(instr) => instr.encode(),
+            Self::Not(instr) => instr.encode(),
         }
     }
 }

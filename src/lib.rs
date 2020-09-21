@@ -5,7 +5,7 @@ pub mod instruction;
 use instruction::{
     AddImmediate, AddRegister, AndImmediate, AndRegister, Branch, Instruction, Jump,
     JumpSubRoutineOffset, JumpSubRoutineRegister, Load, LoadBaseOffset, LoadEffectiveAddress,
-    LoadIndirect,
+    LoadIndirect, Not,
 };
 
 pub type BusSize = u16;
@@ -62,6 +62,7 @@ impl LC3 {
             Instruction::LoadBaseOffset(instr) => self.load_base_offset(instr),
             Instruction::LoadEffectiveAddress(instr) => self.load_effective_address(instr),
             Instruction::LoadIndirect(instr) => self.load_indirect(instr),
+            Instruction::Not(instr) => self.not(instr),
         }
     }
 
@@ -126,6 +127,11 @@ impl LC3 {
     pub fn load_indirect(&mut self, instr: LoadIndirect) {
         let address = self.memory[(self.pc + instr.pc_offset9) as usize];
         self.set_register(instr.dr, self.memory[address as usize]);
+    }
+
+    pub fn not(&mut self, instr: Not) {
+        let val = !self.registers[instr.sr1 as usize];
+        self.set_register(instr.dr, val);
     }
 
     /// Put `value` in `register` and set the cond register based on `value`
@@ -438,5 +444,21 @@ mod tests {
         machine.step();
 
         assert_eq!(machine.registers[dr as usize], PROGRAM_START + 11);
+    }
+
+    #[test]
+    fn not() {
+        let mut memory = [0; MAX_MEMORY_SIZE];
+        let dr = 1;
+        let sr1 = 2;
+
+        let instruction = Instruction::Not(Not { dr, sr1 }).encode();
+        memory[PROGRAM_START as usize] = instruction;
+
+        let mut machine = LC3::new(memory);
+        machine.registers[sr1 as usize] = 0xF0F0;
+        machine.step();
+
+        assert_eq!(machine.registers[dr as usize], 0x0F0F);
     }
 }
