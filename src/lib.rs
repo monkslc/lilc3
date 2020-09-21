@@ -5,7 +5,7 @@ pub mod instruction;
 use instruction::{
     AddImmediate, AddRegister, AndImmediate, AndRegister, Branch, Instruction, Jump,
     JumpSubRoutineOffset, JumpSubRoutineRegister, Load, LoadBaseOffset, LoadEffectiveAddress,
-    LoadIndirect, Not, Store, StoreIndirect,
+    LoadIndirect, Not, Store, StoreBaseOffset, StoreIndirect,
 };
 
 pub type BusSize = u16;
@@ -64,6 +64,7 @@ impl LC3 {
             Instruction::LoadIndirect(instr) => self.load_indirect(instr),
             Instruction::Not(instr) => self.not(instr),
             Instruction::Store(instr) => self.store(instr),
+            Instruction::StoreBaseOffset(instr) => self.store_base_offset(instr),
             Instruction::StoreIndirect(instr) => self.store_indirect(instr),
         }
     }
@@ -138,6 +139,11 @@ impl LC3 {
 
     pub fn store(&mut self, instr: Store) {
         let address = self.pc + instr.pc_offset9;
+        self.memory[address as usize] = self.registers[instr.sr as usize];
+    }
+
+    pub fn store_base_offset(&mut self, instr: StoreBaseOffset) {
+        let address = self.registers[instr.base_r as usize] + instr.pc_offset6 as u16;
         self.memory[address as usize] = self.registers[instr.sr as usize];
     }
 
@@ -510,5 +516,34 @@ mod tests {
         machine.step();
 
         assert_eq!(machine.memory[direct_address as usize], 17);
+    }
+
+    #[test]
+    fn store_base_offset() {
+        let mut memory = [0; MAX_MEMORY_SIZE];
+
+        let base_r = 1;
+        let base_r_value = 11;
+
+        let sr = 2;
+        let sr_value = 17;
+
+        let pc_offset6 = 10;
+
+        let instruction = Instruction::StoreBaseOffset(StoreBaseOffset {
+            sr,
+            pc_offset6,
+            base_r,
+        })
+        .encode();
+        memory[PROGRAM_START as usize] = instruction;
+
+        let mut machine = LC3::new(memory);
+        machine.registers[base_r as usize] = base_r_value;
+        machine.registers[sr as usize] = sr_value;
+        machine.step();
+
+        let updated_address = base_r_value + pc_offset6 as u16;
+        assert_eq!(machine.memory[updated_address as usize], sr_value);
     }
 }

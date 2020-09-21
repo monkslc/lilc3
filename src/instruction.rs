@@ -13,7 +13,7 @@ pub enum OpCode {
     JumpSubRoutine = 4,
     And = 5,
     LoadBaseOffset = 6,
-    StoreRegister = 7,
+    StoreBaseOffset = 7,
     Unused = 8,
     Not = 9,
     LoadIndirect = 10,
@@ -45,6 +45,7 @@ impl OpCode {
             4 => OpCode::JumpSubRoutine,
             5 => OpCode::And,
             6 => OpCode::LoadBaseOffset,
+            7 => OpCode::StoreBaseOffset,
             9 => OpCode::Not,
             10 => OpCode::LoadIndirect,
             11 => OpCode::StoreIndirect,
@@ -71,6 +72,7 @@ pub enum Instruction {
     LoadIndirect(LoadIndirect),
     Not(Not),
     Store(Store),
+    StoreBaseOffset(StoreBaseOffset),
     StoreIndirect(StoreIndirect),
 }
 
@@ -414,6 +416,36 @@ impl Store {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct StoreBaseOffset {
+    pub sr: RegisterIndex,
+    pub base_r: RegisterIndex,
+    pub pc_offset6: u8,
+}
+
+impl StoreBaseOffset {
+    pub fn encode(&self) -> InstructionSize {
+        let instr = 0;
+        let instr = set_opcode(instr, OpCode::StoreBaseOffset);
+        let instr = set_sr(instr, self.sr);
+        let instr = set_base_r(instr, self.base_r);
+        let instr = set_pc_offset6(instr, self.pc_offset6);
+        instr
+    }
+
+    pub fn decode(instr: InstructionSize) -> Self {
+        let sr = get_sr(instr);
+        let base_r = get_base_r(instr);
+        let pc_offset6 = get_pc_offset6(instr);
+
+        StoreBaseOffset {
+            base_r,
+            sr,
+            pc_offset6,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct StoreIndirect {
     pub sr: RegisterIndex,
     pub pc_offset9: u16,
@@ -476,6 +508,7 @@ impl Instruction {
             OpCode::LoadIndirect => Instruction::LoadIndirect(LoadIndirect::decode(instr)),
             OpCode::Not => Instruction::Not(Not::decode(instr)),
             OpCode::Store => Instruction::Store(Store::decode(instr)),
+            OpCode::StoreBaseOffset => Instruction::StoreBaseOffset(StoreBaseOffset::decode(instr)),
             OpCode::StoreIndirect => Instruction::StoreIndirect(StoreIndirect::decode(instr)),
             _ => todo!(),
         }
@@ -497,6 +530,7 @@ impl Instruction {
             Self::LoadIndirect(instr) => instr.encode(),
             Self::Not(instr) => instr.encode(),
             Self::Store(instr) => instr.encode(),
+            Self::StoreBaseOffset(instr) => instr.encode(),
             Self::StoreIndirect(instr) => instr.encode(),
         }
     }
