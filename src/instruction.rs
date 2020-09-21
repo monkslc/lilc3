@@ -177,13 +177,13 @@ impl Branch {
     pub fn encode(&self) -> InstructionSize {
         let instr = 0;
         let instr = set_opcode(instr, OpCode::Branch);
-        let instr = set_cond(instr, self.nzp);
+        let instr = set_nzp(instr, self.nzp);
         let instr = set_pcoffset9(instr, self.pc_offset9);
 
         instr
     }
     pub fn decode(instr: InstructionSize) -> Self {
-        let nzp = get_cond(instr);
+        let nzp = get_nzp(instr);
         let pc_offset9 = get_pcoffset9(instr);
 
         Branch { nzp, pc_offset9 }
@@ -274,62 +274,76 @@ impl Instruction {
     }
 }
 
+/// Returns the bits of an instruction from `start` to `end`
+///
+/// Instruction bits are 0 indexed. `start` is inclusive and `end` is exclusive.
+fn get_bit_field(instr: InstructionSize, start: u8, end: u8) -> InstructionSize {
+    instr >> start & !(0xFFFF << (end - start))
+}
+
+/// Sets the least significant bits of `field` in `instr` starting at `start`.
+///
+/// Instruction bits are 0 indexed. `start` is inclusive.
+fn set_bit_field(instr: InstructionSize, field: u16, start: u8) -> InstructionSize {
+    instr | (field << start)
+}
+
 fn set_opcode(instr: InstructionSize, op: OpCode) -> InstructionSize {
-    instr | op.align_instruction()
+    set_bit_field(instr, op as u16, 12)
 }
 
 fn get_opcode(instr: InstructionSize) -> u16 {
-    instr >> 12
+    get_bit_field(instr, 12, 16)
 }
 
 fn set_dr(instr: InstructionSize, register: RegisterIndex) -> InstructionSize {
-    instr | ((register as u16) << 9)
+    set_bit_field(instr, register as u16, 9)
 }
 
 fn get_dr(instr: InstructionSize) -> RegisterIndex {
-    ((instr >> 9) as u8) & 0x7
+    get_bit_field(instr, 9, 12) as u8
 }
 
 fn set_sr1(instr: InstructionSize, register: RegisterIndex) -> InstructionSize {
-    instr | ((register as u16) << 6)
+    set_bit_field(instr, register as u16, 6)
 }
 
 fn get_sr1(instr: InstructionSize) -> RegisterIndex {
-    ((instr >> 6) as u8) & 0x7
+    get_bit_field(instr, 6, 9) as u8
 }
 
 fn set_sr2(instr: InstructionSize, register: RegisterIndex) -> InstructionSize {
-    instr | (register as u16)
+    set_bit_field(instr, register as u16, 0)
 }
 
 fn get_sr2(instr: InstructionSize) -> RegisterIndex {
-    (instr & 0x7) as u8
+    get_bit_field(instr, 0, 3) as u8
 }
 
 fn set_imm5(instr: InstructionSize, imm5: u16) -> InstructionSize {
-    let instr = instr | imm5;
+    let instr = set_bit_field(instr, imm5, 0);
     let immediate_mode_flag = 0b100000;
     let instr = instr | immediate_mode_flag;
     instr
 }
 
 fn get_imm5(instr: InstructionSize) -> u16 {
-    let imm5 = instr & 0x1F;
+    let imm5 = get_bit_field(instr, 0, 5);
     let imm5 = sign_extend_u16(imm5, 5);
     imm5
 }
 
 fn get_immediate_mode(instr: InstructionSize) -> u16 {
-    instr >> 5 & 1
+    get_bit_field(instr, 5, 6)
 }
 
-fn get_cond(instr: InstructionSize) -> CondFlag {
-    let cond = (instr >> 9) & 0x7;
+fn get_nzp(instr: InstructionSize) -> CondFlag {
+    let cond = get_bit_field(instr, 9, 12);
     CondFlag::from_bits(cond as u8).unwrap()
 }
 
-fn set_cond(instr: InstructionSize, cond: CondFlag) -> InstructionSize {
-    instr | ((cond.bits() as u16) << 9)
+fn set_nzp(instr: InstructionSize, cond: CondFlag) -> InstructionSize {
+    set_bit_field(instr, cond.bits() as u16, 9)
 }
 
 fn get_pcoffset9(instr: InstructionSize) -> u16 {
@@ -338,15 +352,15 @@ fn get_pcoffset9(instr: InstructionSize) -> u16 {
 }
 
 fn set_pcoffset9(instr: InstructionSize, offset: u16) -> InstructionSize {
-    instr | offset
+    set_bit_field(instr, offset, 0)
 }
 
-fn get_base_r(instr: InstructionSize) -> u8 {
-    ((instr >> 6) & 0x7) as u8
+fn get_base_r(instr: InstructionSize) -> RegisterIndex {
+    get_bit_field(instr, 6, 8) as u8
 }
 
-fn set_base_r(instr: InstructionSize, base_r: u8) -> InstructionSize {
-    instr | (base_r as u16) << 6
+fn set_base_r(instr: InstructionSize, base_r: RegisterIndex) -> InstructionSize {
+    set_bit_field(instr, base_r as u16, 6)
 }
 
 fn sign_extend_u16(val: u16, original_length: u8) -> u16 {
