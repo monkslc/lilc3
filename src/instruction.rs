@@ -47,6 +47,7 @@ impl OpCode {
             6 => OpCode::LoadBaseOffset,
             9 => OpCode::Not,
             10 => OpCode::LoadIndirect,
+            11 => OpCode::StoreIndirect,
             12 => OpCode::Jump,
             14 => OpCode::LoadEffectiveAddress,
             _ => todo!(),
@@ -70,6 +71,7 @@ pub enum Instruction {
     LoadIndirect(LoadIndirect),
     Not(Not),
     Store(Store),
+    StoreIndirect(StoreIndirect),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -411,6 +413,29 @@ impl Store {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct StoreIndirect {
+    pub sr: RegisterIndex,
+    pub pc_offset9: u16,
+}
+
+impl StoreIndirect {
+    pub fn encode(&self) -> InstructionSize {
+        let instr = 0;
+        let instr = set_opcode(instr, OpCode::StoreIndirect);
+        let instr = set_sr(instr, self.sr);
+        let instr = set_pc_offset9(instr, self.pc_offset9);
+
+        instr
+    }
+    pub fn decode(instr: InstructionSize) -> Self {
+        let sr = get_sr(instr);
+        let pc_offset9 = get_pc_offset9(instr);
+
+        StoreIndirect { sr, pc_offset9 }
+    }
+}
+
 impl Instruction {
     pub fn decode(instr: InstructionSize) -> Self {
         match OpCode::from_instruction(instr) {
@@ -451,6 +476,7 @@ impl Instruction {
             OpCode::LoadIndirect => Instruction::LoadIndirect(LoadIndirect::decode(instr)),
             OpCode::Not => Instruction::Not(Not::decode(instr)),
             OpCode::Store => Instruction::Store(Store::decode(instr)),
+            OpCode::StoreIndirect => Instruction::StoreIndirect(StoreIndirect::decode(instr)),
             _ => todo!(),
         }
     }
@@ -471,6 +497,7 @@ impl Instruction {
             Self::LoadIndirect(instr) => instr.encode(),
             Self::Not(instr) => instr.encode(),
             Self::Store(instr) => instr.encode(),
+            Self::StoreIndirect(instr) => instr.encode(),
         }
     }
 }

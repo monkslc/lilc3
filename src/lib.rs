@@ -5,7 +5,7 @@ pub mod instruction;
 use instruction::{
     AddImmediate, AddRegister, AndImmediate, AndRegister, Branch, Instruction, Jump,
     JumpSubRoutineOffset, JumpSubRoutineRegister, Load, LoadBaseOffset, LoadEffectiveAddress,
-    LoadIndirect, Not, Store,
+    LoadIndirect, Not, Store, StoreIndirect,
 };
 
 pub type BusSize = u16;
@@ -64,6 +64,7 @@ impl LC3 {
             Instruction::LoadIndirect(instr) => self.load_indirect(instr),
             Instruction::Not(instr) => self.not(instr),
             Instruction::Store(instr) => self.store(instr),
+            Instruction::StoreIndirect(instr) => self.store_indirect(instr),
         }
     }
 
@@ -137,6 +138,12 @@ impl LC3 {
 
     pub fn store(&mut self, instr: Store) {
         let address = self.pc + instr.pc_offset9;
+        self.memory[address as usize] = self.registers[instr.sr as usize];
+    }
+
+    pub fn store_indirect(&mut self, instr: StoreIndirect) {
+        let indirect_address = self.pc + instr.pc_offset9;
+        let address = self.memory[indirect_address as usize];
         self.memory[address as usize] = self.registers[instr.sr as usize];
     }
 
@@ -483,5 +490,25 @@ mod tests {
 
         let updated_address = (PROGRAM_START + pc_offset9 + 1) as usize;
         assert_eq!(machine.memory[updated_address], 17);
+    }
+
+    #[test]
+    fn store_indirect() {
+        let mut memory = [0; MAX_MEMORY_SIZE];
+        let sr = 1;
+        let pc_offset9 = 10;
+
+        let direct_address = 0xFFFE;
+        let indirect_address = PROGRAM_START + pc_offset9 + 1;
+
+        let instruction = Instruction::StoreIndirect(StoreIndirect { sr, pc_offset9 }).encode();
+        memory[PROGRAM_START as usize] = instruction;
+        memory[indirect_address as usize] = direct_address;
+
+        let mut machine = LC3::new(memory);
+        machine.registers[sr as usize] = 17;
+        machine.step();
+
+        assert_eq!(machine.memory[direct_address as usize], 17);
     }
 }
