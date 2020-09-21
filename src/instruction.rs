@@ -1,4 +1,4 @@
-use super::{InstructionSize, RegisterIndex};
+use super::{CondFlag, InstructionSize, RegisterIndex};
 
 /// OpCodes specify the instruction to be performed. In LC3 they are bits 12 to 15 of the 16 bit
 /// instruction. The numbers asssociated with each opcode in the enum correspond with bits 12 to 15 of an LC3 instruction for that opcode. That is, doing 12 right shifts on an instruction will leave
@@ -38,6 +38,7 @@ impl OpCode {
     pub fn from_instruction(instruction: InstructionSize) -> Self {
         let opcode = get_opcode(instruction);
         match opcode {
+            0 => OpCode::Branch,
             1 => OpCode::Add,
             5 => OpCode::And,
             10 => OpCode::LoadIndirect,
@@ -52,6 +53,7 @@ pub enum Instruction {
     AddRegister(AddRegister),
     AndImmediate(AndImmediate),
     AndRegister(AndRegister),
+    Branch(Branch),
     LoadIndirect(LoadIndirect),
 }
 
@@ -164,6 +166,29 @@ impl AndRegister {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Branch {
+    pub nzp: CondFlag,
+    pub pc_offset9: u16,
+}
+
+impl Branch {
+    pub fn encode(&self) -> InstructionSize {
+        let instr = 0;
+        let instr = set_opcode(instr, OpCode::Branch);
+        let instr = set_cond(instr, self.nzp);
+        let instr = set_pcoffset9(instr, self.pc_offset9);
+
+        instr
+    }
+    pub fn decode(instr: InstructionSize) -> Self {
+        let nzp = get_cond(instr);
+        let pc_offset9 = get_pcoffset9(instr);
+
+        Branch { nzp, pc_offset9 }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct LoadIndirect {
     pub dr: RegisterIndex,
     pub pc_offset9: u16,
@@ -174,14 +199,13 @@ impl LoadIndirect {
         let instr = 0;
         let instr = set_opcode(instr, OpCode::LoadIndirect);
         let instr = set_dr(instr, self.dr);
-        let instr = instr | self.pc_offset9;
+        let instr = set_pcoffset9(instr, self.pc_offset9);
         instr
     }
 
     pub fn decode(instr: InstructionSize) -> Self {
         let dr = get_dr(instr);
-        let pc_offset9 = instr & 0x1FF;
-        let pc_offset9 = sign_extend_u16(pc_offset9, 9);
+        let pc_offset9 = get_pcoffset9(instr);
 
         LoadIndirect { dr, pc_offset9 }
     }
@@ -199,7 +223,6 @@ impl Instruction {
                     Instruction::AddRegister(AddRegister::decode(instr))
                 }
             }
-            OpCode::LoadIndirect => Instruction::LoadIndirect(LoadIndirect::decode(instr)),
             OpCode::And => {
                 let mode_flag = get_immediate_mode(instr);
 
@@ -209,6 +232,8 @@ impl Instruction {
                     Instruction::AndRegister(AndRegister::decode(instr))
                 }
             }
+            OpCode::Branch => Instruction::Branch(Branch::decode(instr)),
+            OpCode::LoadIndirect => Instruction::LoadIndirect(LoadIndirect::decode(instr)),
             _ => todo!(),
         }
     }
@@ -219,6 +244,7 @@ impl Instruction {
             Self::AddRegister(instr) => instr.encode(),
             Self::AndImmediate(instr) => instr.encode(),
             Self::AndRegister(instr) => instr.encode(),
+            Self::Branch(instr) => instr.encode(),
             Self::LoadIndirect(instr) => instr.encode(),
         }
     }
@@ -271,6 +297,24 @@ fn get_imm5(instr: InstructionSize) -> u16 {
 
 fn get_immediate_mode(instr: InstructionSize) -> u16 {
     instr >> 5 & 1
+}
+
+fn get_cond(instr: InstructionSize) -> CondFlag {
+    let cond = (instr >> 9) & 0x7;
+    CondFlag::from_bits(cond as u8).unwrap()
+}
+
+fn set_cond(instr: InstructionSize, cond: CondFlag) -> u16 {
+    instr | ((cond.bits() as u16) << 9)
+}
+
+fn get_pcoffset9(instr: InstructionSize) -> u16 {
+    let pc_offset9 = instr & 0x1FF;
+    sign_extend_u16(pc_offset9, 9)
+}
+
+fn set_pcoffset9(instr: InstructionSize, offset: u16) -> u16 {
+    instr | offset
 }
 
 fn sign_extend_u16(val: u16, original_length: u8) -> u16 {

@@ -3,7 +3,7 @@ use bitflags::bitflags;
 pub mod instruction;
 
 use instruction::{
-    AddImmediate, AddRegister, AndImmediate, AndRegister, Instruction, LoadIndirect,
+    AddImmediate, AddRegister, AndImmediate, AndRegister, Branch, Instruction, LoadIndirect,
 };
 
 pub type BusSize = u16;
@@ -18,7 +18,7 @@ const MAX_MEMORY_SIZE: usize = BusSize::MAX as usize;
 const REGISTER_COUNT: usize = 8;
 
 bitflags! {
-    struct CondFlag: u8 {
+    pub struct CondFlag: u8 {
         const POSITIVE = 0b1;
         const NEGATIVE = 0b10;
         const ZERO = 0b100;
@@ -52,6 +52,7 @@ impl LC3 {
             Instruction::AddRegister(instr) => self.add_register(instr),
             Instruction::AndImmediate(instr) => self.and_immediate(instr),
             Instruction::AndRegister(instr) => self.and_register(instr),
+            Instruction::Branch(instr) => self.branch(instr),
             Instruction::LoadIndirect(instr) => self.load_indirect(instr),
         }
     }
@@ -77,6 +78,12 @@ impl LC3 {
     pub fn and_register(&mut self, instr: AndRegister) {
         let value = self.registers[instr.sr1 as usize] & self.registers[instr.sr2 as usize];
         self.set_register(instr.dr, value)
+    }
+
+    pub fn branch(&mut self, instr: Branch) {
+        if (instr.nzp & self.cond).bits() > 0 {
+            self.pc += instr.pc_offset9 as usize;
+        }
     }
 
     pub fn load_indirect(&mut self, instr: LoadIndirect) {
@@ -256,5 +263,37 @@ mod tests {
         let expected = 0xFFF1;
         assert_eq!(machine.registers[dr as usize], expected);
         assert_eq!(machine.cond, CondFlag::NEGATIVE);
+    }
+
+    #[test]
+    fn branch() {
+        let mut memory = [0; MAX_MEMORY_SIZE];
+        let nzp = CondFlag::POSITIVE;
+        let pc_offset9 = 10;
+
+        let instruction = Instruction::Branch(Branch { nzp, pc_offset9 }).encode();
+        memory[PROGRAM_START] = instruction;
+
+        let mut machine = LC3::new(memory);
+        machine.cond = CondFlag::POSITIVE;
+        machine.step();
+
+        assert_eq!(machine.pc, PROGRAM_START + 11);
+    }
+
+    #[test]
+    fn dont_branch() {
+        let mut memory = [0; MAX_MEMORY_SIZE];
+        let nzp = CondFlag::POSITIVE;
+        let pc_offset9 = 10;
+
+        let instruction = Instruction::Branch(Branch { nzp, pc_offset9 }).encode();
+        memory[PROGRAM_START] = instruction;
+
+        let mut machine = LC3::new(memory);
+        machine.cond = CondFlag::NEGATIVE;
+        machine.step();
+
+        assert_eq!(machine.pc, PROGRAM_START + 1);
     }
 }
