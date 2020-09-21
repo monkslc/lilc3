@@ -4,7 +4,7 @@ pub mod instruction;
 
 use instruction::{
     AddImmediate, AddRegister, AndImmediate, AndRegister, Branch, Instruction, Jump,
-    JumpSubRoutineOffset, JumpSubRoutineRegister, LoadIndirect,
+    JumpSubRoutineOffset, JumpSubRoutineRegister, Load, LoadIndirect,
 };
 
 pub type BusSize = u16;
@@ -57,6 +57,7 @@ impl LC3 {
             Instruction::Jump(instr) => self.jump(instr),
             Instruction::JumpSubRoutineOffset(instr) => self.jump_subroutine_offset(instr),
             Instruction::JumpSubRoutineRegister(instr) => self.jump_subroutine_register(instr),
+            Instruction::Load(instr) => self.load(instr),
             Instruction::LoadIndirect(instr) => self.load_indirect(instr),
         }
     }
@@ -104,8 +105,13 @@ impl LC3 {
         self.pc = self.registers[instr.base_r as usize];
     }
 
-    pub fn load_indirect(&mut self, instr: LoadIndirect) {
+    pub fn load(&mut self, instr: Load) {
         let address = self.pc + instr.pc_offset9;
+        self.set_register(instr.dr, self.memory[address as usize]);
+    }
+
+    pub fn load_indirect(&mut self, instr: LoadIndirect) {
+        let address = self.memory[(self.pc + instr.pc_offset9) as usize];
         self.set_register(instr.dr, self.memory[address as usize]);
     }
 
@@ -235,7 +241,8 @@ mod tests {
 
         let instruction = Instruction::LoadIndirect(LoadIndirect { dr, pc_offset9 }).encode();
         memory[PROGRAM_START as usize] = instruction;
-        memory[PROGRAM_START as usize + 1 + 10] = 17;
+        memory[PROGRAM_START as usize + 1 + 10] = 0xFFFE;
+        memory[0xFFFE] = 17;
 
         let mut machine = LC3::new(memory);
         machine.step();
@@ -362,5 +369,22 @@ mod tests {
 
         assert_eq!(machine.pc, 0xFFFF);
         assert_eq!(machine.registers[7], PROGRAM_START + 1);
+    }
+
+    #[test]
+    fn load() {
+        let mut memory = [0; MAX_MEMORY_SIZE];
+        let dr = 1;
+        let pc_offset9 = 10;
+
+        let instruction = Instruction::Load(Load { dr, pc_offset9 }).encode();
+        memory[PROGRAM_START as usize] = instruction;
+        memory[PROGRAM_START as usize + 1 + 10] = 17;
+
+        let mut machine = LC3::new(memory);
+        machine.step();
+
+        assert_eq!(machine.registers[dr as usize], 17);
+        assert_eq!(machine.cond, CondFlag::POSITIVE);
     }
 }

@@ -40,6 +40,7 @@ impl OpCode {
         match opcode {
             0 => OpCode::Branch,
             1 => OpCode::Add,
+            2 => OpCode::Load,
             4 => OpCode::JumpSubRoutine,
             5 => OpCode::And,
             10 => OpCode::LoadIndirect,
@@ -59,6 +60,7 @@ pub enum Instruction {
     Jump(Jump),
     JumpSubRoutineOffset(JumpSubRoutineOffset),
     JumpSubRoutineRegister(JumpSubRoutineRegister),
+    Load(Load),
     LoadIndirect(LoadIndirect),
 }
 
@@ -255,6 +257,29 @@ impl JumpSubRoutineRegister {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Load {
+    pub dr: RegisterIndex,
+    pub pc_offset9: u16,
+}
+
+impl Load {
+    pub fn encode(&self) -> InstructionSize {
+        let instr = 0;
+        let instr = set_opcode(instr, OpCode::Load);
+        let instr = set_dr(instr, self.dr);
+        let instr = set_pcoffset9(instr, self.pc_offset9);
+        instr
+    }
+
+    pub fn decode(instr: InstructionSize) -> Self {
+        let dr = get_dr(instr);
+        let pc_offset9 = get_pcoffset9(instr);
+
+        Load { dr, pc_offset9 }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct LoadIndirect {
     pub dr: RegisterIndex,
     pub pc_offset9: u16,
@@ -310,6 +335,7 @@ impl Instruction {
                 }
             }
             OpCode::LoadIndirect => Instruction::LoadIndirect(LoadIndirect::decode(instr)),
+            OpCode::Load => Instruction::Load(Load::decode(instr)),
             _ => todo!(),
         }
     }
@@ -324,6 +350,7 @@ impl Instruction {
             Self::Jump(instr) => instr.encode(),
             Self::JumpSubRoutineOffset(instr) => instr.encode(),
             Self::JumpSubRoutineRegister(instr) => instr.encode(),
+            Self::Load(instr) => instr.encode(),
             Self::LoadIndirect(instr) => instr.encode(),
         }
     }
@@ -427,8 +454,6 @@ fn set_pc_offset_mode(instr: InstructionSize) -> u16 {
 }
 
 fn get_pc_offset11(instr: InstructionSize) -> u16 {
-    println!("Instruction: {:016b}", instr);
-    println!("           : {:016b}", get_bit_field(instr, 0, 12));
     get_bit_field(instr, 0, 11)
 }
 
