@@ -1,11 +1,12 @@
 use bitflags::bitflags;
+use std::io::{self, Write};
 
 pub mod instruction;
 
 use instruction::{
     AddImmediate, AddRegister, AndImmediate, AndRegister, Branch, Instruction, Jump,
     JumpSubRoutineOffset, JumpSubRoutineRegister, Load, LoadBaseOffset, LoadEffectiveAddress,
-    LoadIndirect, Not, Store, StoreBaseOffset, StoreIndirect,
+    LoadIndirect, Not, Store, StoreBaseOffset, StoreIndirect, Trap, TrapCode,
 };
 
 pub type BusSize = u16;
@@ -66,6 +67,7 @@ impl LC3 {
             Instruction::Store(instr) => self.store(instr),
             Instruction::StoreBaseOffset(instr) => self.store_base_offset(instr),
             Instruction::StoreIndirect(instr) => self.store_indirect(instr),
+            Instruction::Trap(instr) => self.trap(instr),
         }
     }
 
@@ -151,6 +153,26 @@ impl LC3 {
         let indirect_address = self.pc + instr.pc_offset9;
         let address = self.memory[indirect_address as usize];
         self.memory[address as usize] = self.registers[instr.sr as usize];
+    }
+
+    pub fn trap(&mut self, instr: Trap) {
+        match instr.vect8 {
+            TrapCode::GetC => todo!(),
+            TrapCode::Halt => todo!(),
+            TrapCode::In => todo!(),
+            TrapCode::Out => todo!(),
+            TrapCode::Puts => {
+                let mut starting_address = self.registers[0] as usize;
+                let mut ch = self.memory[starting_address];
+                while ch != 0 {
+                    print!("{}", ch as u8 as char);
+                    starting_address += 1;
+                    ch = self.memory[starting_address];
+                }
+                io::stdout().flush().expect("Flush failed");
+            }
+            TrapCode::PutsP => todo!(),
+        }
     }
 
     /// Put `value` in `register` and set the cond register based on `value`
@@ -545,5 +567,27 @@ mod tests {
 
         let updated_address = base_r_value + pc_offset6 as u16;
         assert_eq!(machine.memory[updated_address as usize], sr_value);
+    }
+
+    #[test]
+    #[ignore] // unignore to see puts output
+    fn puts() {
+        let mut memory = [0; MAX_MEMORY_SIZE];
+
+        let vect8 = TrapCode::Puts;
+        let string_start: u16 = 0xFF00;
+        let string: &[u8; 11] = b"hello world";
+
+        let instruction = Instruction::Trap(Trap { vect8 }).encode();
+        memory[PROGRAM_START as usize] = instruction;
+        for (i, ch) in string.iter().enumerate() {
+            memory[i + string_start as usize] = *ch as u16;
+        }
+
+        let mut machine = LC3::new(memory);
+        machine.registers[0] = string_start;
+        machine.step();
+
+        assert!(false);
     }
 }

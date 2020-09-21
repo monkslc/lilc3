@@ -51,6 +51,7 @@ impl OpCode {
             11 => OpCode::StoreIndirect,
             12 => OpCode::Jump,
             14 => OpCode::LoadEffectiveAddress,
+            15 => OpCode::Trap,
             _ => todo!(),
         }
     }
@@ -74,6 +75,7 @@ pub enum Instruction {
     Store(Store),
     StoreBaseOffset(StoreBaseOffset),
     StoreIndirect(StoreIndirect),
+    Trap(Trap),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -468,6 +470,27 @@ impl StoreIndirect {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Trap {
+    pub vect8: TrapCode,
+}
+
+impl Trap {
+    pub fn encode(&self) -> u16 {
+        let instr = 0;
+        let instr = set_opcode(instr, OpCode::Trap);
+        let instr = set_trap_vect8(instr, self.vect8);
+
+        instr
+    }
+
+    pub fn decode(instr: u16) -> Self {
+        let vect8 = get_trap_vect8(instr);
+
+        Trap { vect8 }
+    }
+}
+
 impl Instruction {
     pub fn decode(instr: InstructionSize) -> Self {
         match OpCode::from_instruction(instr) {
@@ -510,6 +533,7 @@ impl Instruction {
             OpCode::Store => Instruction::Store(Store::decode(instr)),
             OpCode::StoreBaseOffset => Instruction::StoreBaseOffset(StoreBaseOffset::decode(instr)),
             OpCode::StoreIndirect => Instruction::StoreIndirect(StoreIndirect::decode(instr)),
+            OpCode::Trap => Instruction::Trap(Trap::decode(instr)),
             _ => todo!(),
         }
     }
@@ -532,6 +556,7 @@ impl Instruction {
             Self::Store(instr) => instr.encode(),
             Self::StoreBaseOffset(instr) => instr.encode(),
             Self::StoreIndirect(instr) => instr.encode(),
+            Self::Trap(instr) => instr.encode(),
         }
     }
 }
@@ -647,7 +672,7 @@ fn get_pc_offset11(instr: InstructionSize) -> u16 {
     sign_extend_u16(pc_offset11, 9)
 }
 
-fn set_pc_offset11(instr: InstructionSize, offset: u16) -> u16 {
+fn set_pc_offset11(instr: InstructionSize, offset: u16) -> InstructionSize {
     set_bit_field(instr, offset, 0)
 }
 
@@ -657,6 +682,40 @@ fn get_sr(instr: InstructionSize) -> RegisterIndex {
 
 fn set_sr(instr: InstructionSize, sr: u8) -> InstructionSize {
     set_bit_field(instr, sr as u16, 9)
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
+pub enum TrapCode {
+    GetC = 0x20,
+    Out = 0x21,
+    Puts = 0x22,
+    In = 0x23,
+    PutsP = 0x24,
+    Halt = 0x25,
+}
+
+impl TrapCode {
+    pub fn from_bits(bits: u8) -> Self {
+        match bits {
+            0x20 => TrapCode::GetC,
+            0x21 => TrapCode::Out,
+            0x22 => TrapCode::Puts,
+            0x23 => TrapCode::In,
+            0x24 => TrapCode::PutsP,
+            0x25 => TrapCode::Halt,
+            _ => panic!("Unrecognized trap code"),
+        }
+    }
+}
+
+fn get_trap_vect8(instr: InstructionSize) -> TrapCode {
+    let vect8 = get_bit_field(instr, 0, 8);
+    TrapCode::from_bits(vect8 as u8)
+}
+
+fn set_trap_vect8(instr: InstructionSize, trap_code: TrapCode) -> InstructionSize {
+    set_bit_field(instr, trap_code as u8 as u16, 0)
 }
 
 fn sign_extend_u16(val: u16, original_length: u8) -> u16 {
