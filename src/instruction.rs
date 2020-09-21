@@ -42,6 +42,7 @@ impl OpCode {
             1 => OpCode::Add,
             5 => OpCode::And,
             10 => OpCode::LoadIndirect,
+            12 => OpCode::Jump,
             _ => todo!(),
         }
     }
@@ -54,6 +55,7 @@ pub enum Instruction {
     AndImmediate(AndImmediate),
     AndRegister(AndRegister),
     Branch(Branch),
+    Jump(Jump),
     LoadIndirect(LoadIndirect),
 }
 
@@ -189,6 +191,26 @@ impl Branch {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Jump {
+    pub base_r: u8,
+}
+
+impl Jump {
+    pub fn encode(&self) -> InstructionSize {
+        let instr = 0;
+        let instr = set_opcode(instr, OpCode::Jump);
+        let instr = set_base_r(instr, self.base_r);
+
+        instr
+    }
+    pub fn decode(instr: InstructionSize) -> Self {
+        let base_r = get_base_r(instr);
+
+        Jump { base_r }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct LoadIndirect {
     pub dr: RegisterIndex,
     pub pc_offset9: u16,
@@ -233,6 +255,7 @@ impl Instruction {
                 }
             }
             OpCode::Branch => Instruction::Branch(Branch::decode(instr)),
+            OpCode::Jump => Instruction::Jump(Jump::decode(instr)),
             OpCode::LoadIndirect => Instruction::LoadIndirect(LoadIndirect::decode(instr)),
             _ => todo!(),
         }
@@ -245,6 +268,7 @@ impl Instruction {
             Self::AndImmediate(instr) => instr.encode(),
             Self::AndRegister(instr) => instr.encode(),
             Self::Branch(instr) => instr.encode(),
+            Self::Jump(instr) => instr.encode(),
             Self::LoadIndirect(instr) => instr.encode(),
         }
     }
@@ -304,7 +328,7 @@ fn get_cond(instr: InstructionSize) -> CondFlag {
     CondFlag::from_bits(cond as u8).unwrap()
 }
 
-fn set_cond(instr: InstructionSize, cond: CondFlag) -> u16 {
+fn set_cond(instr: InstructionSize, cond: CondFlag) -> InstructionSize {
     instr | ((cond.bits() as u16) << 9)
 }
 
@@ -313,8 +337,16 @@ fn get_pcoffset9(instr: InstructionSize) -> u16 {
     sign_extend_u16(pc_offset9, 9)
 }
 
-fn set_pcoffset9(instr: InstructionSize, offset: u16) -> u16 {
+fn set_pcoffset9(instr: InstructionSize, offset: u16) -> InstructionSize {
     instr | offset
+}
+
+fn get_base_r(instr: InstructionSize) -> u8 {
+    ((instr >> 6) & 0x7) as u8
+}
+
+fn set_base_r(instr: InstructionSize, base_r: u8) -> InstructionSize {
+    instr | (base_r as u16) << 6
 }
 
 fn sign_extend_u16(val: u16, original_length: u8) -> u16 {

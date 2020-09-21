@@ -3,7 +3,7 @@ use bitflags::bitflags;
 pub mod instruction;
 
 use instruction::{
-    AddImmediate, AddRegister, AndImmediate, AndRegister, Branch, Instruction, LoadIndirect,
+    AddImmediate, AddRegister, AndImmediate, AndRegister, Branch, Instruction, Jump, LoadIndirect,
 };
 
 pub type BusSize = u16;
@@ -13,7 +13,7 @@ pub type MemoryLocationSize = u16;
 pub type RegisterIndex = u8;
 pub type RegisterSize = u16;
 
-const PROGRAM_START: usize = 0x3000;
+const PROGRAM_START: MemoryLocationSize = 0x3000;
 const MAX_MEMORY_SIZE: usize = BusSize::MAX as usize;
 const REGISTER_COUNT: usize = 8;
 
@@ -28,7 +28,7 @@ bitflags! {
 pub struct LC3 {
     memory: [MemoryLocationSize; MAX_MEMORY_SIZE],
     registers: [RegisterSize; REGISTER_COUNT],
-    pc: usize,
+    pc: u16,
     cond: CondFlag,
 }
 
@@ -43,7 +43,7 @@ impl LC3 {
     }
 
     pub fn step(&mut self) {
-        let raw_instr = self.memory[self.pc];
+        let raw_instr = self.memory[self.pc as usize];
         self.pc += 1;
         let instr = Instruction::decode(raw_instr);
 
@@ -53,6 +53,7 @@ impl LC3 {
             Instruction::AndImmediate(instr) => self.and_immediate(instr),
             Instruction::AndRegister(instr) => self.and_register(instr),
             Instruction::Branch(instr) => self.branch(instr),
+            Instruction::Jump(instr) => self.jump(instr),
             Instruction::LoadIndirect(instr) => self.load_indirect(instr),
         }
     }
@@ -82,13 +83,17 @@ impl LC3 {
 
     pub fn branch(&mut self, instr: Branch) {
         if (instr.nzp & self.cond).bits() > 0 {
-            self.pc += instr.pc_offset9 as usize;
+            self.pc += instr.pc_offset9;
         }
     }
 
+    pub fn jump(&mut self, instr: Jump) {
+        self.pc = self.registers[instr.base_r as usize];
+    }
+
     pub fn load_indirect(&mut self, instr: LoadIndirect) {
-        let address = self.pc + (instr.pc_offset9 as usize);
-        self.set_register(instr.dr, self.memory[address]);
+        let address = self.pc + instr.pc_offset9;
+        self.set_register(instr.dr, self.memory[address as usize]);
     }
 
     /// Put `value` in `register` and set the cond register based on `value`
@@ -116,7 +121,7 @@ mod tests {
 
         let instruction = Instruction::AddRegister(AddRegister { dr, sr1, sr2 }).encode();
 
-        memory[PROGRAM_START] = instruction;
+        memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::new(memory);
         machine.registers[sr1 as usize] = 5;
@@ -136,7 +141,7 @@ mod tests {
 
         let instruction = Instruction::AddImmediate(AddImmediate { dr, sr1, imm5 }).encode();
 
-        memory[PROGRAM_START] = instruction;
+        memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::new(memory);
         machine.registers[sr1 as usize] = 5;
@@ -155,7 +160,7 @@ mod tests {
 
         let instruction = Instruction::AddRegister(AddRegister { dr, sr1, sr2 }).encode();
 
-        memory[PROGRAM_START] = instruction;
+        memory[PROGRAM_START as usize] = instruction;
 
         let negative_one: u16 = 0xFFFF;
         let negative_two = 0xFFFE;
@@ -178,7 +183,7 @@ mod tests {
 
         let instruction = Instruction::AddRegister(AddRegister { dr, sr1, sr2 }).encode();
 
-        memory[PROGRAM_START] = instruction;
+        memory[PROGRAM_START as usize] = instruction;
 
         let negative_one: u16 = 0xFFFF;
 
@@ -199,7 +204,7 @@ mod tests {
         let imm5 = 0x1F; // negative one as 5 bits
 
         let instruction = Instruction::AddImmediate(AddImmediate { dr, sr1, imm5 }).encode();
-        memory[PROGRAM_START] = instruction;
+        memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::new(memory);
         machine.registers[sr1 as usize] = 1;
@@ -216,8 +221,8 @@ mod tests {
         let pc_offset9 = 10;
 
         let instruction = Instruction::LoadIndirect(LoadIndirect { dr, pc_offset9 }).encode();
-        memory[PROGRAM_START] = instruction;
-        memory[PROGRAM_START + 1 + 10] = 17;
+        memory[PROGRAM_START as usize] = instruction;
+        memory[PROGRAM_START as usize + 1 + 10] = 17;
 
         let mut machine = LC3::new(memory);
         machine.step();
@@ -234,7 +239,7 @@ mod tests {
         let sr2 = 3;
 
         let instruction = Instruction::AndRegister(AndRegister { dr, sr1, sr2 }).encode();
-        memory[PROGRAM_START] = instruction;
+        memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::new(memory);
         machine.registers[sr1 as usize] = 0b0101;
@@ -254,7 +259,7 @@ mod tests {
         let imm5 = 0b10001;
 
         let instruction = Instruction::AndImmediate(AndImmediate { dr, sr1, imm5 }).encode();
-        memory[PROGRAM_START] = instruction;
+        memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::new(memory);
         machine.registers[sr1 as usize] = 0xFFF3;
@@ -272,7 +277,7 @@ mod tests {
         let pc_offset9 = 10;
 
         let instruction = Instruction::Branch(Branch { nzp, pc_offset9 }).encode();
-        memory[PROGRAM_START] = instruction;
+        memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::new(memory);
         machine.cond = CondFlag::POSITIVE;
@@ -288,12 +293,27 @@ mod tests {
         let pc_offset9 = 10;
 
         let instruction = Instruction::Branch(Branch { nzp, pc_offset9 }).encode();
-        memory[PROGRAM_START] = instruction;
+        memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::new(memory);
         machine.cond = CondFlag::NEGATIVE;
         machine.step();
 
         assert_eq!(machine.pc, PROGRAM_START + 1);
+    }
+
+    #[test]
+    fn jump() {
+        let mut memory = [0; MAX_MEMORY_SIZE];
+        let base_r = 1;
+
+        let instruction = Instruction::Jump(Jump { base_r }).encode();
+        memory[PROGRAM_START as usize] = instruction;
+
+        let mut machine = LC3::new(memory);
+        machine.registers[base_r as usize] = 0xFFFF;
+        machine.step();
+
+        assert_eq!(machine.pc, 0xFFFF);
     }
 }
