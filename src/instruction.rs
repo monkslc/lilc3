@@ -454,7 +454,8 @@ fn set_pc_offset_mode(instr: InstructionSize) -> u16 {
 }
 
 fn get_pc_offset11(instr: InstructionSize) -> u16 {
-    get_bit_field(instr, 0, 11)
+    let pc_offset11 = get_bit_field(instr, 0, 11);
+    sign_extend_u16(pc_offset11, 9)
 }
 
 fn set_pc_offset11(instr: InstructionSize, offset: u16) -> u16 {
