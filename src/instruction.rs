@@ -41,6 +41,7 @@ impl OpCode {
             0 => OpCode::Branch,
             1 => OpCode::Add,
             2 => OpCode::Load,
+            3 => OpCode::Store,
             4 => OpCode::JumpSubRoutine,
             5 => OpCode::And,
             6 => OpCode::LoadBaseOffset,
@@ -68,6 +69,7 @@ pub enum Instruction {
     LoadEffectiveAddress(LoadEffectiveAddress),
     LoadIndirect(LoadIndirect),
     Not(Not),
+    Store(Store),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -386,6 +388,29 @@ impl Not {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Store {
+    pub sr: RegisterIndex,
+    pub pc_offset9: u16,
+}
+
+impl Store {
+    pub fn encode(&self) -> InstructionSize {
+        let instr = 0;
+        let instr = set_opcode(instr, OpCode::Store);
+        let instr = set_sr(instr, self.sr);
+        let instr = set_pc_offset9(instr, self.pc_offset9);
+
+        instr
+    }
+    pub fn decode(instr: InstructionSize) -> Self {
+        let sr = get_sr(instr);
+        let pc_offset9 = get_pc_offset9(instr);
+
+        Store { sr, pc_offset9 }
+    }
+}
+
 impl Instruction {
     pub fn decode(instr: InstructionSize) -> Self {
         match OpCode::from_instruction(instr) {
@@ -425,6 +450,7 @@ impl Instruction {
             }
             OpCode::LoadIndirect => Instruction::LoadIndirect(LoadIndirect::decode(instr)),
             OpCode::Not => Instruction::Not(Not::decode(instr)),
+            OpCode::Store => Instruction::Store(Store::decode(instr)),
             _ => todo!(),
         }
     }
@@ -444,6 +470,7 @@ impl Instruction {
             Self::LoadEffectiveAddress(instr) => instr.encode(),
             Self::LoadIndirect(instr) => instr.encode(),
             Self::Not(instr) => instr.encode(),
+            Self::Store(instr) => instr.encode(),
         }
     }
 }
@@ -561,6 +588,14 @@ fn get_pc_offset11(instr: InstructionSize) -> u16 {
 
 fn set_pc_offset11(instr: InstructionSize, offset: u16) -> u16 {
     set_bit_field(instr, offset, 0)
+}
+
+fn get_sr(instr: InstructionSize) -> RegisterIndex {
+    get_bit_field(instr, 9, 12) as u8
+}
+
+fn set_sr(instr: InstructionSize, sr: u8) -> InstructionSize {
+    set_bit_field(instr, sr as u16, 9)
 }
 
 fn sign_extend_u16(val: u16, original_length: u8) -> u16 {
