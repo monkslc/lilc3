@@ -46,6 +46,7 @@ impl OpCode {
             6 => OpCode::LoadBaseOffset,
             10 => OpCode::LoadIndirect,
             12 => OpCode::Jump,
+            14 => OpCode::LoadEffectiveAddress,
             _ => todo!(),
         }
     }
@@ -62,8 +63,9 @@ pub enum Instruction {
     JumpSubRoutineOffset(JumpSubRoutineOffset),
     JumpSubRoutineRegister(JumpSubRoutineRegister),
     Load(Load),
-    LoadIndirect(LoadIndirect),
     LoadBaseOffset(LoadBaseOffset),
+    LoadEffectiveAddress(LoadEffectiveAddress),
+    LoadIndirect(LoadIndirect),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -312,6 +314,29 @@ impl LoadBaseOffset {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct LoadEffectiveAddress {
+    pub dr: RegisterIndex,
+    pub pc_offset9: u16,
+}
+
+impl LoadEffectiveAddress {
+    pub fn encode(&self) -> InstructionSize {
+        let instr = 0;
+        let instr = set_opcode(instr, OpCode::LoadEffectiveAddress);
+        let instr = set_dr(instr, self.dr);
+        let instr = set_pc_offset9(instr, self.pc_offset9);
+        instr
+    }
+
+    pub fn decode(instr: InstructionSize) -> Self {
+        let dr = get_dr(instr);
+        let pc_offset9 = get_pc_offset9(instr);
+
+        LoadEffectiveAddress { dr, pc_offset9 }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct LoadIndirect {
     pub dr: RegisterIndex,
     pub pc_offset9: u16,
@@ -368,6 +393,9 @@ impl Instruction {
             }
             OpCode::Load => Instruction::Load(Load::decode(instr)),
             OpCode::LoadBaseOffset => Instruction::LoadBaseOffset(LoadBaseOffset::decode(instr)),
+            OpCode::LoadEffectiveAddress => {
+                Instruction::LoadEffectiveAddress(LoadEffectiveAddress::decode(instr))
+            }
             OpCode::LoadIndirect => Instruction::LoadIndirect(LoadIndirect::decode(instr)),
             _ => todo!(),
         }
@@ -385,6 +413,7 @@ impl Instruction {
             Self::JumpSubRoutineRegister(instr) => instr.encode(),
             Self::Load(instr) => instr.encode(),
             Self::LoadBaseOffset(instr) => instr.encode(),
+            Self::LoadEffectiveAddress(instr) => instr.encode(),
             Self::LoadIndirect(instr) => instr.encode(),
         }
     }

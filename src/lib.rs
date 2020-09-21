@@ -4,7 +4,8 @@ pub mod instruction;
 
 use instruction::{
     AddImmediate, AddRegister, AndImmediate, AndRegister, Branch, Instruction, Jump,
-    JumpSubRoutineOffset, JumpSubRoutineRegister, Load, LoadBaseOffset, LoadIndirect,
+    JumpSubRoutineOffset, JumpSubRoutineRegister, Load, LoadBaseOffset, LoadEffectiveAddress,
+    LoadIndirect,
 };
 
 pub type BusSize = u16;
@@ -59,6 +60,7 @@ impl LC3 {
             Instruction::JumpSubRoutineRegister(instr) => self.jump_subroutine_register(instr),
             Instruction::Load(instr) => self.load(instr),
             Instruction::LoadBaseOffset(instr) => self.load_base_offset(instr),
+            Instruction::LoadEffectiveAddress(instr) => self.load_effective_address(instr),
             Instruction::LoadIndirect(instr) => self.load_indirect(instr),
         }
     }
@@ -114,6 +116,11 @@ impl LC3 {
     pub fn load_base_offset(&mut self, instr: LoadBaseOffset) {
         let address = self.registers[instr.base_r as usize] + instr.pc_offset6 as u16;
         self.set_register(instr.dr, self.memory[address as usize]);
+    }
+
+    pub fn load_effective_address(&mut self, instr: LoadEffectiveAddress) {
+        let address = self.pc + instr.pc_offset9;
+        self.set_register(instr.dr, address)
     }
 
     pub fn load_indirect(&mut self, instr: LoadIndirect) {
@@ -415,5 +422,21 @@ mod tests {
         machine.step();
 
         assert_eq!(machine.registers[dr as usize], 17);
+    }
+
+    #[test]
+    fn load_effective_address() {
+        let mut memory = [0; MAX_MEMORY_SIZE];
+        let dr = 1;
+        let pc_offset9 = 10;
+
+        let instruction =
+            Instruction::LoadEffectiveAddress(LoadEffectiveAddress { dr, pc_offset9 }).encode();
+        memory[PROGRAM_START as usize] = instruction;
+
+        let mut machine = LC3::new(memory);
+        machine.step();
+
+        assert_eq!(machine.registers[dr as usize], PROGRAM_START + 11);
     }
 }
