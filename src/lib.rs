@@ -1,5 +1,5 @@
 use bitflags::bitflags;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 
 pub mod instruction;
 
@@ -33,6 +33,7 @@ pub struct LC3 {
     registers: [RegisterSize; REGISTER_COUNT],
     pc: u16,
     cond: CondFlag,
+    running: bool,
 }
 
 impl LC3 {
@@ -42,6 +43,7 @@ impl LC3 {
             registers: [0; REGISTER_COUNT],
             pc: PROGRAM_START,
             cond: CondFlag::ZERO,
+            running: false,
         }
     }
 
@@ -157,10 +159,25 @@ impl LC3 {
 
     pub fn trap(&mut self, instr: Trap) {
         match instr.vect8 {
-            TrapCode::GetC => todo!(),
-            TrapCode::Halt => todo!(),
-            TrapCode::In => todo!(),
-            TrapCode::Out => todo!(),
+            TrapCode::GetC => {
+                let ch = read_char();
+                self.registers[0] = ch as u16;
+            }
+            TrapCode::Halt => {
+                println!("HALT");
+                self.running = false;
+            }
+            TrapCode::In => {
+                print!("Enter a character: ");
+                let ch = read_char();
+                flush_or_fail();
+                self.registers[0] = ch as u16;
+            }
+            TrapCode::Out => {
+                let c = self.registers[0];
+                print!("{}", c);
+                flush_or_fail();
+            }
             TrapCode::Puts => {
                 let mut starting_address = self.registers[0] as usize;
                 let mut ch = self.memory[starting_address];
@@ -169,9 +186,24 @@ impl LC3 {
                     starting_address += 1;
                     ch = self.memory[starting_address];
                 }
-                io::stdout().flush().expect("Flush failed");
+                flush_or_fail();
             }
-            TrapCode::PutsP => todo!(),
+            TrapCode::PutsP => {
+                let mut starting_address = self.registers[0] as usize;
+                let mut ch = self.memory[starting_address];
+                while ch != 0 {
+                    let bytes = self.memory[starting_address].to_be_bytes();
+                    print!("{}", bytes[0]);
+                    if bytes[1] == 0 {
+                        break;
+                    }
+                    print!("{}", bytes[1]);
+
+                    starting_address += 1;
+                    ch = self.memory[starting_address];
+                }
+                flush_or_fail();
+            }
         }
     }
 
@@ -185,6 +217,25 @@ impl LC3 {
 
         self.registers[register as usize] = value;
     }
+
+    pub fn run(&mut self) {
+        self.running = true;
+        while self.running {
+            self.step()
+        }
+    }
+}
+
+fn read_char() -> u8 {
+    io::stdin()
+        .bytes()
+        .nth(0)
+        .expect("Couldn't get char")
+        .expect("Couldn't get char")
+}
+
+fn flush_or_fail() {
+    io::stdout().flush().expect("Flush failed");
 }
 
 #[cfg(test)]
