@@ -271,7 +271,8 @@ mod tests {
         let sr1 = 2;
         let sr2 = 3;
 
-        let instruction = Instruction::AddRegister(AddRegister { dr, sr1, sr2 }).encode();
+        let instruction =
+            u16::from_be(Instruction::AddRegister(AddRegister { dr, sr1, sr2 }).encode());
 
         memory[PROGRAM_START as usize] = instruction;
 
@@ -291,7 +292,8 @@ mod tests {
         let sr1 = 2;
         let imm5 = 6;
 
-        let instruction = Instruction::AddImmediate(AddImmediate { dr, sr1, imm5 }).encode();
+        let instruction =
+            u16::from_be(Instruction::AddImmediate(AddImmediate { dr, sr1, imm5 }).encode());
 
         memory[PROGRAM_START as usize] = instruction;
 
@@ -310,7 +312,8 @@ mod tests {
         let sr1 = 2;
         let sr2 = 3;
 
-        let instruction = Instruction::AddRegister(AddRegister { dr, sr1, sr2 }).encode();
+        let instruction =
+            u16::from_be(Instruction::AddRegister(AddRegister { dr, sr1, sr2 }).encode());
 
         memory[PROGRAM_START as usize] = instruction;
 
@@ -333,7 +336,8 @@ mod tests {
         let sr1 = 2;
         let sr2 = 3;
 
-        let instruction = Instruction::AddRegister(AddRegister { dr, sr1, sr2 }).encode();
+        let instruction =
+            u16::from_be(Instruction::AddRegister(AddRegister { dr, sr1, sr2 }).encode());
 
         memory[PROGRAM_START as usize] = instruction;
 
@@ -355,7 +359,8 @@ mod tests {
         let sr1 = 2;
         let imm5 = 0x1F; // negative one as 5 bits
 
-        let instruction = Instruction::AddImmediate(AddImmediate { dr, sr1, imm5 }).encode();
+        let instruction =
+            u16::from_be(Instruction::AddImmediate(AddImmediate { dr, sr1, imm5 }).encode());
         memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::from_start_state(memory);
@@ -372,7 +377,9 @@ mod tests {
         let dr = 1;
         let pc_offset9 = 10;
 
-        let instruction = Instruction::LoadIndirect(LoadIndirect { dr, pc_offset9 }).encode();
+        let instruction =
+            u16::from_be(Instruction::LoadIndirect(LoadIndirect { dr, pc_offset9 }).encode());
+
         memory[PROGRAM_START as usize] = instruction;
         memory[PROGRAM_START as usize + 1 + 10] = 0xFFFE;
         memory[0xFFFE] = 17;
@@ -391,7 +398,8 @@ mod tests {
         let sr1 = 2;
         let sr2 = 3;
 
-        let instruction = Instruction::AndRegister(AndRegister { dr, sr1, sr2 }).encode();
+        let instruction =
+            u16::from_be(Instruction::AndRegister(AndRegister { dr, sr1, sr2 }).encode());
         memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::from_start_state(memory);
@@ -411,7 +419,8 @@ mod tests {
         let sr1 = 2;
         let imm5 = 0b10001;
 
-        let instruction = Instruction::AndImmediate(AndImmediate { dr, sr1, imm5 }).encode();
+        let instruction =
+            u16::from_be(Instruction::AndImmediate(AndImmediate { dr, sr1, imm5 }).encode());
         memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::from_start_state(memory);
@@ -429,7 +438,7 @@ mod tests {
         let nzp = CondFlag::POSITIVE;
         let pc_offset9 = 10;
 
-        let instruction = Instruction::Branch(Branch { nzp, pc_offset9 }).encode();
+        let instruction = u16::from_be(Instruction::Branch(Branch { nzp, pc_offset9 }).encode());
         memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::from_start_state(memory);
@@ -445,7 +454,7 @@ mod tests {
         let nzp = CondFlag::POSITIVE;
         let pc_offset9 = 10;
 
-        let instruction = Instruction::Branch(Branch { nzp, pc_offset9 }).encode();
+        let instruction = u16::from_be(Instruction::Branch(Branch { nzp, pc_offset9 }).encode());
         memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::from_start_state(memory);
@@ -460,7 +469,7 @@ mod tests {
         let mut memory = [0; MAX_MEMORY_SIZE];
         let base_r = 1;
 
-        let instruction = Instruction::Jump(Jump { base_r }).encode();
+        let instruction = u16::from_be(Instruction::Jump(Jump { base_r }).encode());
         memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::from_start_state(memory);
@@ -475,8 +484,9 @@ mod tests {
         let mut memory = [0; MAX_MEMORY_SIZE];
         let pc_offset11 = 10;
 
-        let instruction =
-            Instruction::JumpSubRoutineOffset(JumpSubRoutineOffset { pc_offset11 }).encode();
+        let instruction = u16::from_be(
+            Instruction::JumpSubRoutineOffset(JumpSubRoutineOffset { pc_offset11 }).encode(),
+        );
         memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::from_start_state(memory);
@@ -491,8 +501,9 @@ mod tests {
         let mut memory = [0; MAX_MEMORY_SIZE];
         let base_r = 1;
 
-        let instruction =
-            Instruction::JumpSubRoutineRegister(JumpSubRoutineRegister { base_r }).encode();
+        let instruction = u16::from_be(
+            Instruction::JumpSubRoutineRegister(JumpSubRoutineRegister { base_r }).encode(),
+        );
         memory[PROGRAM_START as usize] = instruction;
 
         let jump_to = 0xFFFF;
@@ -510,7 +521,7 @@ mod tests {
         let dr = 1;
         let pc_offset9 = 10;
 
-        let instruction = Instruction::Load(Load { dr, pc_offset9 }).encode();
+        let instruction = u16::from_be(Instruction::Load(Load { dr, pc_offset9 }).encode());
         memory[PROGRAM_START as usize] = instruction;
         memory[PROGRAM_START as usize + 1 + 10] = 17;
 
@@ -528,12 +539,14 @@ mod tests {
         let base_r = 2;
         let pc_offset6 = 3;
 
-        let instruction = Instruction::LoadBaseOffset(LoadBaseOffset {
-            dr,
-            base_r,
-            pc_offset6,
-        })
-        .encode();
+        let instruction = u16::from_be(
+            Instruction::LoadBaseOffset(LoadBaseOffset {
+                dr,
+                base_r,
+                pc_offset6,
+            })
+            .encode(),
+        );
         memory[PROGRAM_START as usize] = instruction;
         memory[10] = 17;
 
@@ -550,8 +563,9 @@ mod tests {
         let dr = 1;
         let pc_offset9 = 10;
 
-        let instruction =
-            Instruction::LoadEffectiveAddress(LoadEffectiveAddress { dr, pc_offset9 }).encode();
+        let instruction = u16::from_be(
+            Instruction::LoadEffectiveAddress(LoadEffectiveAddress { dr, pc_offset9 }).encode(),
+        );
         memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::from_start_state(memory);
@@ -566,7 +580,7 @@ mod tests {
         let dr = 1;
         let sr1 = 2;
 
-        let instruction = Instruction::Not(Not { dr, sr1 }).encode();
+        let instruction = u16::from_be(Instruction::Not(Not { dr, sr1 }).encode());
         memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::from_start_state(memory);
@@ -582,7 +596,7 @@ mod tests {
         let sr = 1;
         let pc_offset9 = 10;
 
-        let instruction = Instruction::Store(Store { sr, pc_offset9 }).encode();
+        let instruction = u16::from_be(Instruction::Store(Store { sr, pc_offset9 }).encode());
         memory[PROGRAM_START as usize] = instruction;
 
         let mut machine = LC3::from_start_state(memory);
@@ -602,7 +616,8 @@ mod tests {
         let direct_address = 0xFFFE;
         let indirect_address = PROGRAM_START + pc_offset9 + 1;
 
-        let instruction = Instruction::StoreIndirect(StoreIndirect { sr, pc_offset9 }).encode();
+        let instruction =
+            u16::from_be(Instruction::StoreIndirect(StoreIndirect { sr, pc_offset9 }).encode());
         memory[PROGRAM_START as usize] = instruction;
         memory[indirect_address as usize] = direct_address;
 
@@ -624,12 +639,14 @@ mod tests {
 
         let pc_offset6 = 10;
 
-        let instruction = Instruction::StoreBaseOffset(StoreBaseOffset {
-            sr,
-            pc_offset6,
-            base_r,
-        })
-        .encode();
+        let instruction = u16::from_be(
+            Instruction::StoreBaseOffset(StoreBaseOffset {
+                sr,
+                pc_offset6,
+                base_r,
+            })
+            .encode(),
+        );
 
         memory[PROGRAM_START as usize] = instruction;
 
@@ -651,7 +668,7 @@ mod tests {
         let string_start: u16 = 0xFF00;
         let string: &[u8; 11] = b"hello world";
 
-        let instruction = Instruction::Trap(Trap { vect8 }).encode();
+        let instruction = u16::from_be(Instruction::Trap(Trap { vect8 }).encode());
         memory[PROGRAM_START as usize] = instruction;
         for (i, ch) in string.iter().enumerate() {
             memory[i + string_start as usize] = *ch as u16;

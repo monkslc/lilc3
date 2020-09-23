@@ -93,7 +93,7 @@ impl AddImmediate {
         let instr = set_sr1(instr, self.sr1);
         let instr = set_imm5(instr, self.imm5);
 
-        instr
+        instr.to_be()
     }
 
     pub fn decode(instr: u16) -> Self {
@@ -120,7 +120,7 @@ impl AddRegister {
         let instr = set_sr1(instr, self.sr1);
         let instr = set_sr2(instr, self.sr2);
 
-        instr
+        instr.to_be()
     }
     pub fn decode(instr: u16) -> Self {
         let dr = get_dr(instr);
@@ -146,7 +146,7 @@ impl AndImmediate {
         let instr = set_sr1(instr, self.sr1);
         let instr = set_imm5(instr, self.imm5);
 
-        instr
+        instr.to_be()
     }
 
     pub fn decode(instr: InstructionSize) -> Self {
@@ -175,7 +175,7 @@ impl AndRegister {
         let instr = set_sr1(instr, self.sr1);
         let instr = set_sr2(instr, self.sr2);
 
-        instr
+        instr.to_be()
     }
     pub fn decode(instr: InstructionSize) -> Self {
         let dr = get_dr(instr);
@@ -199,7 +199,7 @@ impl Branch {
         let instr = set_nzp(instr, self.nzp);
         let instr = set_pc_offset9(instr, self.pc_offset9);
 
-        instr
+        instr.to_be()
     }
     pub fn decode(instr: InstructionSize) -> Self {
         let nzp = get_nzp(instr);
@@ -220,7 +220,7 @@ impl Jump {
         let instr = set_opcode(instr, OpCode::Jump);
         let instr = set_base_r(instr, self.base_r);
 
-        instr
+        instr.to_be()
     }
     pub fn decode(instr: InstructionSize) -> Self {
         let base_r = get_base_r(instr);
@@ -241,7 +241,7 @@ impl JumpSubRoutineOffset {
         let instr = set_pc_offset11(instr, self.pc_offset11);
         let instr = set_pc_offset_mode(instr);
 
-        instr
+        instr.to_be()
     }
     pub fn decode(instr: InstructionSize) -> Self {
         let pc_offset11 = get_pc_offset11(instr);
@@ -261,7 +261,7 @@ impl JumpSubRoutineRegister {
         let instr = set_opcode(instr, OpCode::JumpSubRoutine);
         let instr = set_base_r(instr, self.base_r);
 
-        instr
+        instr.to_be()
     }
     pub fn decode(instr: InstructionSize) -> Self {
         let base_r = get_base_r(instr);
@@ -282,7 +282,7 @@ impl Load {
         let instr = set_opcode(instr, OpCode::Load);
         let instr = set_dr(instr, self.dr);
         let instr = set_pc_offset9(instr, self.pc_offset9);
-        instr
+        instr.to_be()
     }
 
     pub fn decode(instr: InstructionSize) -> Self {
@@ -307,7 +307,7 @@ impl LoadBaseOffset {
         let instr = set_dr(instr, self.dr);
         let instr = set_base_r(instr, self.base_r);
         let instr = set_pc_offset6(instr, self.pc_offset6);
-        instr
+        instr.to_be()
     }
 
     pub fn decode(instr: InstructionSize) -> Self {
@@ -335,7 +335,7 @@ impl LoadEffectiveAddress {
         let instr = set_opcode(instr, OpCode::LoadEffectiveAddress);
         let instr = set_dr(instr, self.dr);
         let instr = set_pc_offset9(instr, self.pc_offset9);
-        instr
+        instr.to_be()
     }
 
     pub fn decode(instr: InstructionSize) -> Self {
@@ -358,7 +358,7 @@ impl LoadIndirect {
         let instr = set_opcode(instr, OpCode::LoadIndirect);
         let instr = set_dr(instr, self.dr);
         let instr = set_pc_offset9(instr, self.pc_offset9);
-        instr
+        instr.to_be()
     }
 
     pub fn decode(instr: InstructionSize) -> Self {
@@ -383,7 +383,7 @@ impl Not {
         let instr = set_sr1(instr, self.sr1);
         let instr = instr | 0x1F;
 
-        instr
+        instr.to_be()
     }
 
     pub fn decode(instr: u16) -> Self {
@@ -407,7 +407,7 @@ impl Store {
         let instr = set_sr(instr, self.sr);
         let instr = set_pc_offset9(instr, self.pc_offset9);
 
-        instr
+        instr.to_be()
     }
     pub fn decode(instr: InstructionSize) -> Self {
         let sr = get_sr(instr);
@@ -431,7 +431,7 @@ impl StoreBaseOffset {
         let instr = set_sr(instr, self.sr);
         let instr = set_base_r(instr, self.base_r);
         let instr = set_pc_offset6(instr, self.pc_offset6);
-        instr
+        instr.to_be()
     }
 
     pub fn decode(instr: InstructionSize) -> Self {
@@ -460,7 +460,7 @@ impl StoreIndirect {
         let instr = set_sr(instr, self.sr);
         let instr = set_pc_offset9(instr, self.pc_offset9);
 
-        instr
+        instr.to_be()
     }
     pub fn decode(instr: InstructionSize) -> Self {
         let sr = get_sr(instr);
@@ -481,7 +481,7 @@ impl Trap {
         let instr = set_opcode(instr, OpCode::Trap);
         let instr = set_trap_vect8(instr, self.vect8);
 
-        instr
+        instr.to_be()
     }
 
     pub fn decode(instr: u16) -> Self {

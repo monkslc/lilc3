@@ -9,7 +9,7 @@ fn decoding() {
     let sr1 = 2;
     let sr2 = 3;
 
-    let add = Instruction::AddRegister(AddRegister { dr, sr1, sr2 }).encode();
+    let add = u16::from_be(Instruction::AddRegister(AddRegister { dr, sr1, sr2 }).encode());
     let add_instruction_bytes = add.to_be_bytes();
 
     let origin: u16 = 0xF;
