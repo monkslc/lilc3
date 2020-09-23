@@ -10,6 +10,7 @@ use instruction::{
 };
 
 pub type BusSize = u16;
+pub type InstructionBytes = [u8; 2];
 pub type InstructionSize = u16;
 pub type Memory = [MemoryLocationSize; MAX_MEMORY_SIZE];
 pub type MemoryLocationSize = u16;
@@ -29,15 +30,36 @@ bitflags! {
 }
 
 pub struct LC3 {
-    memory: [MemoryLocationSize; MAX_MEMORY_SIZE],
-    registers: [RegisterSize; REGISTER_COUNT],
-    pc: u16,
-    cond: CondFlag,
-    running: bool,
+    pub memory: Memory,
+    pub registers: [RegisterSize; REGISTER_COUNT],
+    pub pc: u16,
+    pub cond: CondFlag,
+    pub running: bool,
 }
 
 impl LC3 {
-    pub fn new(memory: Memory) -> Self {
+    pub fn new(bytes: &[u8]) -> Self {
+        let origin_bytes: [u8; 2] = [bytes[0], bytes[1]];
+        let origin = u16::from_be_bytes(origin_bytes);
+
+        let mut memory = [0; MAX_MEMORY_SIZE];
+        for (index, slice) in bytes[2..].chunks(2).enumerate() {
+            let first = slice[0];
+            let second = slice.get(1).copied().unwrap_or(0);
+            let instruction = u16::from_be_bytes([first, second]);
+            memory[index * 2 + origin as usize] = instruction;
+        }
+
+        LC3 {
+            memory,
+            registers: [0; REGISTER_COUNT],
+            pc: origin,
+            cond: CondFlag::ZERO,
+            running: false,
+        }
+    }
+
+    pub fn from_start_state(memory: Memory) -> Self {
         LC3 {
             memory,
             registers: [0; REGISTER_COUNT],
@@ -253,7 +275,7 @@ mod tests {
 
         memory[PROGRAM_START as usize] = instruction;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.registers[sr1 as usize] = 5;
         machine.registers[sr2 as usize] = 6;
         machine.step();
@@ -273,7 +295,7 @@ mod tests {
 
         memory[PROGRAM_START as usize] = instruction;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.registers[sr1 as usize] = 5;
         machine.step();
 
@@ -295,7 +317,7 @@ mod tests {
         let negative_one: u16 = 0xFFFF;
         let negative_two = 0xFFFE;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.registers[sr1 as usize] = negative_one;
         machine.registers[sr2 as usize] = negative_one;
         machine.step();
@@ -317,7 +339,7 @@ mod tests {
 
         let negative_one: u16 = 0xFFFF;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.registers[sr1 as usize] = 1;
         machine.registers[sr2 as usize] = negative_one;
         machine.step();
@@ -336,7 +358,7 @@ mod tests {
         let instruction = Instruction::AddImmediate(AddImmediate { dr, sr1, imm5 }).encode();
         memory[PROGRAM_START as usize] = instruction;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.registers[sr1 as usize] = 1;
         machine.step();
 
@@ -355,7 +377,7 @@ mod tests {
         memory[PROGRAM_START as usize + 1 + 10] = 0xFFFE;
         memory[0xFFFE] = 17;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.step();
 
         assert_eq!(machine.registers[dr as usize], 17);
@@ -372,7 +394,7 @@ mod tests {
         let instruction = Instruction::AndRegister(AndRegister { dr, sr1, sr2 }).encode();
         memory[PROGRAM_START as usize] = instruction;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.registers[sr1 as usize] = 0b0101;
         machine.registers[sr2 as usize] = 0b1110;
         machine.step();
@@ -392,7 +414,7 @@ mod tests {
         let instruction = Instruction::AndImmediate(AndImmediate { dr, sr1, imm5 }).encode();
         memory[PROGRAM_START as usize] = instruction;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.registers[sr1 as usize] = 0xFFF3;
         machine.step();
 
@@ -410,7 +432,7 @@ mod tests {
         let instruction = Instruction::Branch(Branch { nzp, pc_offset9 }).encode();
         memory[PROGRAM_START as usize] = instruction;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.cond = CondFlag::POSITIVE;
         machine.step();
 
@@ -426,7 +448,7 @@ mod tests {
         let instruction = Instruction::Branch(Branch { nzp, pc_offset9 }).encode();
         memory[PROGRAM_START as usize] = instruction;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.cond = CondFlag::NEGATIVE;
         machine.step();
 
@@ -441,7 +463,7 @@ mod tests {
         let instruction = Instruction::Jump(Jump { base_r }).encode();
         memory[PROGRAM_START as usize] = instruction;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.registers[base_r as usize] = 0xFFFF;
         machine.step();
 
@@ -457,7 +479,7 @@ mod tests {
             Instruction::JumpSubRoutineOffset(JumpSubRoutineOffset { pc_offset11 }).encode();
         memory[PROGRAM_START as usize] = instruction;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.step();
 
         assert_eq!(machine.pc, PROGRAM_START + 11);
@@ -474,7 +496,7 @@ mod tests {
         memory[PROGRAM_START as usize] = instruction;
 
         let jump_to = 0xFFFF;
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.registers[base_r as usize] = jump_to;
         machine.step();
 
@@ -492,7 +514,7 @@ mod tests {
         memory[PROGRAM_START as usize] = instruction;
         memory[PROGRAM_START as usize + 1 + 10] = 17;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.step();
 
         assert_eq!(machine.registers[dr as usize], 17);
@@ -515,7 +537,7 @@ mod tests {
         memory[PROGRAM_START as usize] = instruction;
         memory[10] = 17;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.registers[base_r as usize] = 7;
         machine.step();
 
@@ -532,7 +554,7 @@ mod tests {
             Instruction::LoadEffectiveAddress(LoadEffectiveAddress { dr, pc_offset9 }).encode();
         memory[PROGRAM_START as usize] = instruction;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.step();
 
         assert_eq!(machine.registers[dr as usize], PROGRAM_START + 11);
@@ -547,7 +569,7 @@ mod tests {
         let instruction = Instruction::Not(Not { dr, sr1 }).encode();
         memory[PROGRAM_START as usize] = instruction;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.registers[sr1 as usize] = 0xF0F0;
         machine.step();
 
@@ -563,7 +585,7 @@ mod tests {
         let instruction = Instruction::Store(Store { sr, pc_offset9 }).encode();
         memory[PROGRAM_START as usize] = instruction;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.registers[sr as usize] = 17;
         machine.step();
 
@@ -584,7 +606,7 @@ mod tests {
         memory[PROGRAM_START as usize] = instruction;
         memory[indirect_address as usize] = direct_address;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.registers[sr as usize] = 17;
         machine.step();
 
@@ -594,7 +616,6 @@ mod tests {
     #[test]
     fn store_base_offset() {
         let mut memory = [0; MAX_MEMORY_SIZE];
-
         let base_r = 1;
         let base_r_value = 11;
 
@@ -609,9 +630,10 @@ mod tests {
             base_r,
         })
         .encode();
+
         memory[PROGRAM_START as usize] = instruction;
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.registers[base_r as usize] = base_r_value;
         machine.registers[sr as usize] = sr_value;
         machine.step();
@@ -635,7 +657,7 @@ mod tests {
             memory[i + string_start as usize] = *ch as u16;
         }
 
-        let mut machine = LC3::new(memory);
+        let mut machine = LC3::from_start_state(memory);
         machine.registers[0] = string_start;
         machine.step();
 
